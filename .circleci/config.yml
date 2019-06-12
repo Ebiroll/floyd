@@ -18,7 +18,7 @@ jobs:
           command: 'cmake /root/project/dev/floyd_speak/'
       - run:
            name: Creating Binary Files
-           command: 'cd build;make -j;cd ..'
+           command: 'make'
       - run:
            name: floyd Unit Testing
-           command: './build/floydut runtests'
+           command: './floydut runtests'
