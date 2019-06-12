@@ -4,24 +4,21 @@ version: 2
 jobs:
   build:
     docker:
-       - image: "debian:stretch"
+       - image: "archlinux/base"
     steps:
       - checkout
       - run:
-          name: Installing SUDO
-          command: 'apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/*'
+          name: Installing dev
+          command: 'pacman -Sy --noconfirm && pacman -S --noconfirm git gcc make cmake llvm'
       - run:
-          name: Installing GCC
-          command: 'apt-get update && apt-get install -y gcc g++'
-      - run:
-          name: Install CMAKE
-          command: 'apt-get update && sudo apt-get install -y cmake llvm'
+          name: ls
+          command: 'pwd && ls && ls /root/project'
       - run:
           name: Creating Build Files
-          command: 'cmake /root/project/dev/floyd_speak/ -B build'
+          command: 'cmake /root/project/dev/floyd_speak/'
       - run:
            name: Creating Binary Files
-           command: 'cmake --build build'
+           command: 'cd build;make -j;cd ..'
       - run:
            name: floyd Unit Testing
            command: './build/floydut runtests'
