@@ -1,14 +1,23 @@
 ![](floyd_logo_banner.png)
 
-License: MIT
 
-Status: Alpha. All the basics of the language are finished and robust. Runs on bytecode interpreter. Will run natively soon. Production ready for smaller programs. The next step is implementing the LLVM backend and the data structure optimisation features.
+**PLEASE PLAY AROUND WITH FLOYD**
 
-[ROADMAP](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap")
 
-[CURRENT MILESTONE](https://github.com/marcusz/floyd/projects/4 "Milestone 2")
+# TL;DR
+**WHAT:** General-purpose programming language with unique take on execution performance and and programming.
 
-This repo holds the compiler, the bytecode interpreter and documentation.
+**LICENCE:** MIT
+ 
+**STATUS:** Alpha 2. All the basics of the language are finished and robust. Runs natively using LLVM JIT backend (passes all tests, but not optimised). A byte code interpreter is also available. Production ready for smaller programs.
+
+**IN THE REPO:** This Github repository holds the compiler, the bytecode interpreter and documentation.
+
+**2019:** 1) first generation of Injector (optimiser), 2) Flesh out language, approx 15% more features.
+
+**ROADMAP:** [ROADMAP](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap")
+
+**CURRENT MILESTONE:** [CURRENT MILESTONE](https://github.com/marcusz/floyd/projects/4 "Milestone 2")
 
 
 # WHAT IS FLOYD?
@@ -17,7 +26,7 @@ Floyd is a general-purpose programming language designed for making very large a
 
 The goal is to make a programming language that:
 
-- Executes faster than the same programming written in C or C++ - it should become the preferred language to write a video game engine with, for example
+- Executes faster than the same programming written in C or C++ (with the same skills & time) - it should become the preferred language to write a video game engine with, for example
 
 - Makes it fast and simple to program - less accidental complexity
 
@@ -35,25 +44,25 @@ Floyd separates your program into three separate concerns:
 
 Floyd compilers and tools are written in C++ 17 and compiles with Clang and GCC.
 
-Floyd's web page: [www.floydlang.org](https://www.floydlang.org "Floyd language's Homepage")
-
 
 
 ## LANGUAGE SYNTAX
 
 Floyd looks like Javascript and has a lot fewer features, syntax and quirks than most languages. Floyd is **statically typed** with **type inference**. It's got built in types for vectors, dictionaries, JSON, a struct type and strings. All values are **immutable** / **persistent data structures** using HAMT and other techniques.
 
+NOTICE: The manual is full of examples in text form: [Floyd Manual](floyd_manual/floyd_manual.md).
+
 
 ![](floyd_snippets.png)
-*Notice that the last example gives you a NEW dictionary - it doesn't change the old one*
 
 It's a mashup of imperative, functional and OOP. Functions defaults to **pure** (but with normal local variables).
 
 Floyd has no classes, no pointers / references, no tracing GC (uses copying and RC), no threads, mutexes, atomics and no header files. No Closures. No generics.
 
-TBD: protocol type for simple polymorphism, basic encapsulation feature, sum-type and limited lambdas.
 
 ![](floyd_quick_reference.png)
+
+Roadmap: protocol type for simple polymorphism, basic encapsulation feature, sum-type and limited lambdas.
 
 
 
@@ -73,9 +82,11 @@ Safe parallelism is built in using map() reduce() filter() and supermap(). Like 
 
 
 
-## BYTECODE AND NATIVE
+## NATIVE PERFORMANCE AND BYTE CODE INTERPRETER
 
-Floyd runs on a bytecode interpreter (now) and natively using LLVM (implementation in progress). Both will be available.
+Floyd compiles to optimised native x86 and x64 machine code, using an LLVM-based backend. This is the same backend Xcode uses for Swift, C and C++.
+
+Floyd also has a byte code compiler & interpreter. It is useful for embedding / scripting using Floyd but also for making tools for Floyd. 
 
 
 
@@ -93,9 +104,63 @@ You optimise your program by running it and *augmenting* your Floyd processes an
 
 ![](floyd_optimization.png)
 
+# INSTALLATION
+
+There is no compiled distribution of Floyd yet. You need to clone the github repository and build yourself.
+
+#### MACOS
+
+1. Clone the Floyd repository from Github. Use the master branch
+
+2. Install the Homebrew package manager, if you don't already have it. https://brew.sh/
+
+3. In your terminal, run "brew install llvm@8.0.0" -- this installs the LLVM library on your Mac. It's installed in "/usr/local/Cellar/llvm/8.0.0_1" - so it won't conflict with Xcode or other versions of LLVM.
+
+4. Open the Floyd xcode project: Floyd/dev/floyd_speak.xcodeproj
+
+5. Make sure the current xcode scheme is "unit tests". Select from the top-left popup menu, looking like a stop-button.
+
+6. Select menu Product/Run
+
+	This builds the project and runs the unit tests. Output in the Xcode console.
+	
+#### UNIX
+
+Cmake is used to build floyd 
+
+
+
+
+##### Building with arch linux
+
+1. Install llvm, sudo pacman -Sy llvm
+
+2. cd floyd/dev/floyd_speak
+
+3. mkdir build;cd build
+
+4. cmake ..
+
+5. make
+
+##### Builing quicker with ninja
+ 
+ 0. sudo pacman -Sy ninja
+
+ 1-3. as above 
+
+ 4. cmake .. -G Ninja
+
+ 5. ninja
+
+#### WINDOWS
+
+TBD
+
+
 # STATUS
 
-The essentials of Floyd are up and running and very robust (approximately 1000 tests), including the concurrent Floyd processes. The compiler generates bytecode that runs at about 5-10% of native speed on the interpreter. The manual is complete.
+The essentials of Floyd are up and running and very robust (more than 1000 tests), including the concurrent Floyd processes. The manual is complete but needs polish.
 
 A handful features are needed for a satisfying 1.0: rounding out the language features somewhat and then *it's all about performance*.
 
@@ -106,13 +171,17 @@ A handful features are needed for a satisfying 1.0: rounding out the language fe
 |:---				|:---
 | [Floyd Manual](floyd_manual/floyd_manual.md) | Programming language manual
 | [Core Library Manual](floyd_manual/floyd_speak_corelibs.md) | File system access, JSON support, hashes, map() etc.
-| **Floyd compiler** | Compiles Floyd source code to byte code
-| **Floyd bytecode interpreter**	|Runs your program
+| **Floyd compiler** | Compiles Floyd source code
+| **Floyd LLVM backend**	| Optimises your Floyd program and generates native code x86 / x64 code
+| **Floyd byte code compiler & interpreter**	| Runs your program in the byte code interpeter
 
 
 
-# LOOKING FORWARD
+# MOVING FORWARD
 
 [ROADMAP](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap")
 
 [CURRENT MILESTONE](https://github.com/marcusz/floyd/projects/4 "Milestone 2")
+
+
+**PLEASE PLAY AROUND WITH FLOYD**
