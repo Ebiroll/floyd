@@ -14,5 +14,5 @@ install:
 
 script:
   - llvm-config --cxxflags --ldflags --system-libs --libs engine interpreter
-  - cmake dev/floyd_speak -D FORCE_LLVM_LIB="-L/usr/local/clang-7.0.0/lib -lLLVMInterpreter -lLLVMInterpreter -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMCodeGen -lLLVMScalarOpts -lLLVMInstCombine -lLLVMAggressiveInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMX86Desc -lLLVMMCDisassembler -lLLVMX86Info -lLLVMX86AsmPrinter -lLLVMX86Utils -lLLVMMCJIT -lLLVMExecutionEngine -lLLVMTarget -lLLVMAnalysis -lLLVMProfileData -lLLVMRuntimeDyld -lLLVMObject -lLLVMMCParser -lLLVMBitReader -lLLVMMC -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF -lLLVMCore -lLLVMBinaryFormat -lLLVMSupport -lLLVMDemangle"
+  - cmake dev/floyd_speak -D FORCE_LLVM_LIB="-L/usr/local/clang-7.0.0/lib -lLLVMInterpreter  -lLLVMCore -lLLVMBinaryFormat -lLLVMSupport -lLLVMDemangle"
   - cmake --build . 
