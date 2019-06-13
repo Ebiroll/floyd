@@ -9,6 +9,13 @@ project( floyd_speak)
 
 cmake_minimum_required (VERSION 3.4)
 
+if( FORCE_LLVM_LIB ) 
+    set(LLVM_LIBS ${FORCE_LLVM_LIBS})
+else()
+  set(LLVM_LIBS LLVM-8)
+endif()
+
+
 #add_subdirectory(libs/Celero-master)
 
 #SET (CMAKE_BUILD_TYPE Release)
@@ -142,7 +149,7 @@ target_include_directories( floyd
 
 target_link_libraries( floyd
 ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
-${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM-8
+${FLOYD_SPEAK_DEPENDENCIES} pthread ${LLVM_LIBS}
 )
 
 
@@ -168,5 +175,5 @@ target_include_directories( floydut
 
 target_link_libraries( floydut
 ${FLOYD_SPEAK__UT_STATIC_DEPENDENCIES}
-${FLOYD_SPEAK__UT_DEPENDENCIES} pthread LLVM-8
+${FLOYD_SPEAK__UT_DEPENDENCIES} pthread ${LLVM_LIBS}
 )
