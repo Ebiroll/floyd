@@ -15,4 +15,4 @@ install:
 script:
   - llvm-config --cxxflags --ldflags --system-libs --libs engine interpreter
   - cmake dev/floyd_speak
-  - cmake --build . -j 
+  - cmake --build . 
