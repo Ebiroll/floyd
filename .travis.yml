@@ -12,6 +12,7 @@ install:
   - sudo apt-get install -qq g++-8 cmake llvm
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
 
-script: 
+script:
+  - llvm-config --cxxflags --ldflags --system-libs --libs engine interpreter
   - cmake dev/floyd_speak
-  - cmake --build .
+  - cmake --build . -j 
