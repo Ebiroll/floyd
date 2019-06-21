@@ -16,7 +16,7 @@ const bool k_trace_types = false;
 
 #include "ast_value.h"
 
-#include "host_functions.h"
+#include "bytecode_host_functions.h"
 
 #include "floyd_parser.h"
 #include "ast_json.h"
@@ -64,8 +64,9 @@ typedef std::vector<std::shared_ptr<const floyd::function_definition_t>> functio
 
 
 /*
-TODO:
+TODO ???:
 
+- Pass llvm::Value* for the runtime-pointer instead of emit_f?
 - Make nicer mechanism to register all host functions, types and key-strings.
 - Store explicit members like assert_f instead of search on string.
 */
@@ -91,10 +92,6 @@ struct resolved_symbol_t {
 
 struct llvm_code_generator_t;
 
-struct global_constructor_t {
-	virtual ~global_constructor_t(){};
-	virtual void store_constant(llvm_code_generator_t& gen_acc, llvm::Function& emit_f) = 0;
-};
 
 
 
@@ -142,8 +139,6 @@ struct llvm_code_generator_t {
 	*/
 	//	One element for each global symbol in AST. Same indexes as in symbol table.
 	std::vector<std::vector<resolved_symbol_t>> scope_path;
-
-	std::vector<std::shared_ptr<global_constructor_t>> global_constructors;
 };
 
 
@@ -403,238 +398,14 @@ std::string compose_function_def_name(function_id_t function_id, const function_
 
 
 
-////////////////////////////////		CODE GENERATION PRIMITIVES
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-static llvm::Value* generate_alloc_vec(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, uint64_t element_count, const std::string& debug){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& context = gen_acc.instance->context;
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_vector");
-
-	const auto element_count_reg = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), element_count);
-
-	std::vector<llvm::Value*> args2 = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		element_count_reg
-	};
-	return builder.CreateCall(f.llvm_f, args2, "");
-}
-
-//??? Pass llvm::Value* for runtime-pointer, not emit_f.
-//	Allocates a new string with the contents of a 8bit string.
-static llvm::Value* generate_alloc_string_from_strptr(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& char_ptr_reg, llvm::Value& size_reg, const std::string& debug){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "fr_alloc_kstr");
-	std::vector<llvm::Value*> args = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		&char_ptr_reg,
-		&size_reg
-	};
-	return builder.CreateCall(f.llvm_f, args, "");
-}
-
-static llvm::Value* generate_alloc_dict(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const std::string& debug){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_dict");
-
-	//	Local function, called once.
-	std::vector<llvm::Value*> args2 = {
-		get_callers_fcp(gen_acc.interner, emit_f)
-	};
-	return builder.CreateCall(f.llvm_f, args2, "");
-}
-
-static void generate_store_dict_mutable(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& dict_reg, llvm::Value& key_charptr_reg, llvm::Value& value_reg, const typeid_t& value_type){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__store_dict_mutable");
-
-	std::vector<llvm::Value*> args2 = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		&dict_reg,
-		&key_charptr_reg,
-		generate_cast_to_runtime_value(gen_acc, value_reg, value_type),
-		generate_itype_constant(gen_acc, value_type)
-	};
-	builder.CreateCall(f.llvm_f, args2, "");
-}
-
-static llvm::Value* generate_lookup_dict(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& dict_reg, llvm::Value& key_charptr_reg){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__lookup_dict");
-
-	std::vector<llvm::Value*> args2 = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		&dict_reg,
-		&key_charptr_reg
-	};
-	return builder.CreateCall(f.llvm_f, args2, "");
-}
-
-
-//	Put a value_t into a json
-static llvm::Value* generate_alloc_json(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& input_value_reg, const typeid_t& input_type){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_json");
-	std::vector<llvm::Value*> args2 = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		generate_cast_to_runtime_value(gen_acc, input_value_reg, input_type),
-		generate_itype_constant(gen_acc, input_type)
-	};
-	return builder.CreateCall(f.llvm_f, args2, "");
-}
-
-static llvm::Value* generate_lookup_json(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& json_reg, llvm::Value& key_reg, const typeid_t& key_type){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__lookup_json");
-
-	std::vector<llvm::Value*> args = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		&json_reg,
-		generate_cast_to_runtime_value(gen_acc, key_reg, key_type),
-		generate_itype_constant(gen_acc, key_type)
-	};
-	return builder.CreateCall(f.llvm_f, args, "");
-}
-
-
-static llvm::Value* generate_json_to_string(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& json_reg){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__json_to_string");
-
-	std::vector<llvm::Value*> args = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		&json_reg
-	};
-	return builder.CreateCall(f.llvm_f, args, "");
-}
-
-
-static llvm::Value* generate_allocate_memory(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& bytes_reg){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	const auto def = find_function_def(gen_acc, "floyd_runtime__allocate_memory");
-
-	std::vector<llvm::Value*> args = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		&bytes_reg
-	};
-	return gen_acc.builder.CreateCall(def.llvm_f, args, "");
-}
-
-static llvm::Value* generate_alloc_struct(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, std::size_t size){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& context = gen_acc.instance->context;
-	auto& builder = gen_acc.builder;
-
-	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_struct");
-
-	const auto size_reg = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), size);
-
-	std::vector<llvm::Value*> args2 = {
-		get_callers_fcp(gen_acc.interner, emit_f),
-		size_reg
-	};
-	return builder.CreateCall(f.llvm_f, args2, "");
-}
 
 
 
-/*
-//		llvm::Constant* array = llvm::ConstantDataArray::getString(context, value.get_string_value(), true);
-//		llvm::Constant* c = gen_acc.builder.CreatePointerCast(array, int8Ptr_type);
-	//	, "cast [n x i8] to i8*"0
 
-	//	Allocate space for a VEC_T, return pointer to it as our constant. Setup so the VEC_T is initialized
-/// get() constructor - ArrayTy needs to be compatible with
-/// ArrayRef<ElementTy>. Calls get(LLVMContext, ArrayRef<ElementTy>).
-
-//		auto vec_head_space = llvm::ConstantDataArray::get(context, ArrayTy &Elts);
-
-//	Make a global string constant.
-//	llvm::Constant* str_ptr = builder.CreateGlobalStringPtr(s);
-
-//	llvm::Constant* str_size = llvm::ConstantInt::get(builder.getInt64Ty(), s.size());
-
-	auto vec_ptr_type = get_exact_llvm_type(context, typeid_t::make_string());
-
-	//	Cannot init the VEC_T completely at runtime since its element_ptr is static and should not be freed!?
-	llvm::Constant* element_ptr = nullptr;
-	llvm::Constant* element_count = llvm::ConstantInt::get(builder.getInt32Ty(), 0);
-	llvm::Constant* magic = llvm::ConstantInt::get(builder.getInt16Ty(), 0xDABB);
-	llvm::Constant* element_bits = llvm::ConstantInt::get(builder.getInt16Ty(), s.size());
-	llvm::Constant* vec_space = llvm::ConstantStruct::get(make_generic_vec_type(context), { element_ptr, element_count, magic, element_bits });
-
-	llvm::Constant *Zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
-	llvm::Constant* vec_space_ptr = llvm::ConstantExpr::getInBoundsGetElementPtr(vec_space->getType(), vec_space, llvm::ArrayRef<llvm::Constant *>{ Zero, Zero });
-
-
-	llvm::GlobalVariable* temp_vec_ptr = generate_global0(*gen_acc.module, "temp_str", *vec_ptr_type, nullptr);
-
-	auto initx = std::make_shared<init_vec_t>(temp_vec_ptr, s);
-	gen_acc.global_constructors.push_back(initx);
-
-	llvm::Constant *Zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
-	llvm::Constant* result3 = llvm::ConstantExpr::getInBoundsGetElementPtr(temp_vec_ptr->getType(), temp_vec_ptr, llvm::ArrayRef<llvm::Constant *>{ Zero, Zero });
-	return result3;
-*/
-
-struct init_vec_t : global_constructor_t {
-	init_vec_t(llvm::Constant* vec_space, const std::string& str) :
-		vec_space(vec_space),
-		str(str)
-	{
-	}
-	llvm::Constant* vec_space;
-	std::string str;
-
-	void store_constant(llvm_code_generator_t& gen_acc, llvm::Function& emit_f) override {
-		auto& builder = gen_acc.builder;
-
-		//	Make a global string constant.
-		llvm::Constant* str_ptr = builder.CreateGlobalStringPtr(str);
-
-		llvm::Constant* str_size = llvm::ConstantInt::get(builder.getInt64Ty(), str.size());
-		auto string_vec_ptr_reg = generate_alloc_string_from_strptr(gen_acc, emit_f, *str_ptr, *str_size, "string literal");
-		builder.CreateStore(string_vec_ptr_reg, vec_space);
-	}
-};
 
 /*
 	Put the string characters in a LLVM constant,
@@ -650,13 +421,17 @@ llvm::Value* generate_constant_string(llvm_code_generator_t& gen_acc, llvm::Func
 
 	//	Make a global string constant.
 	llvm::Constant* str_ptr = builder.CreateGlobalStringPtr(s);
-
 	llvm::Constant* str_size = llvm::ConstantInt::get(builder.getInt64Ty(), s.size());
-	auto string_vec_ptr_reg = generate_alloc_string_from_strptr(gen_acc, emit_f, *str_ptr, *str_size, "string literal");
+
+	const auto f = find_function_def(gen_acc, "fr_alloc_kstr");
+	std::vector<llvm::Value*> args = {
+		get_callers_fcp(gen_acc.interner, emit_f),
+		str_ptr,
+		str_size
+	};
+	auto string_vec_ptr_reg = builder.CreateCall(f.llvm_f, args, "string literal");
 	return string_vec_ptr_reg;
 };
-
-
 
 
 //	Makes constant from a Floyd value. The constant may go in code segment or be computed at app init-time.
@@ -745,27 +520,11 @@ llvm::Value* generate_constant(llvm_code_generator_t& gen_acc, llvm::Function& e
 	return std::visit(visitor_t{ gen_acc, builder, context, itype, value, emit_f }, type._contents);
 }
 
-//	Returns STRUCT_T*.
-static llvm::Value* generate_allocate_instance(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::StructType& exact_type){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	const llvm::DataLayout& data_layout = gen_acc.module->getDataLayout();
-	const llvm::StructLayout* layout = data_layout.getStructLayout(&exact_type);
-	const auto struct_bytes = layout->getSizeInBytes();
-	auto memory_ptr_reg = generate_alloc_struct(gen_acc, emit_f, struct_bytes);
-//	auto ptr_reg = builder.CreateCast(llvm::Instruction::CastOps::BitCast, memory_ptr_reg, type.getPointerTo(), "");
-	return memory_ptr_reg;
-}
 
 static std::vector<resolved_symbol_t> generate_symbol_slots(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const symbol_table_t& symbol_table){
 	QUARK_ASSERT(gen_acc.check_invariant());
 	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
 	QUARK_ASSERT(symbol_table.check_invariant());
-
-	auto& context = gen_acc.module->getContext();
 
 	std::vector<resolved_symbol_t> result;
 	for(const auto& e: symbol_table._symbols){
@@ -805,31 +564,6 @@ static void generate_destruct_scope_locals(llvm_code_generator_t& gen_acc, llvm:
 	}
 }
 
-#if 0
-//	Destructs all functions in all nested scopes - up until function is left.
-//	FUTURE: If we do nestes function definitions / lambas -- then we need to track where in callstack each function ends.
-static void generate_destruct_scope_locals2(llvm_code_generator_t& gen_acc, llvm::Function& emit_f){
-	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-
-	auto& builder = gen_acc.builder;
-
-	//	Unwind all scopes of function, but not including global scope.
-	for(int i = gen_acc.scope_path.size() ; i > 0 ; i--){
-		for(const auto& e: symbols){
-			if(e.symtype == resolved_symbol_t::esymtype::k_global || e.symtype == resolved_symbol_t::esymtype::k_local){
-				const auto type = e.symbol.get_type();
-				if(is_rc_value(type)){
-					auto reg = builder.CreateLoad(e.value_ptr);
-					generate_release(gen_acc, emit_f, *reg, type);
-				}
-				else{
-				}
-			}
-		}
-	}
-}
-#endif
 
 
 static function_return_mode generate_body(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const std::vector<resolved_symbol_t>& resolved_symbols, const std::vector<statement_t>& statements){
@@ -850,7 +584,6 @@ static function_return_mode generate_body(llvm_code_generator_t& gen_acc, llvm::
 	QUARK_ASSERT(gen_acc.check_invariant());
 	return return_mode;
 }
-
 
 
 static function_return_mode generate_block(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const body_t& body){
@@ -965,6 +698,41 @@ static llvm::Value* generate_resolve_member_expression(llvm_code_generator_t& ge
 	return nullptr;
 }
 
+static llvm::Value* generate_update_member_expression(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e, const expression_t::update_member_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+	QUARK_ASSERT(e.check_invariant());
+
+	auto& builder = gen_acc.builder;
+
+	auto parent_struct_ptr_reg = generate_expression(gen_acc, emit_f, *details.parent_address);
+	auto new_value_reg = generate_expression(gen_acc, emit_f, *details.new_value);
+
+	const auto struct_type = details.parent_address->get_output_type();
+	auto member_index_reg = llvm::ConstantInt::get(builder.getInt64Ty(), details.member_index);
+	const auto member_type = details.new_value->get_output_type();
+
+	const auto f = find_function_def(gen_acc, "fr_update_struct_member");
+
+	std::vector<llvm::Value*> args2 = {
+		get_callers_fcp(gen_acc.interner, emit_f),
+
+		parent_struct_ptr_reg,
+		generate_itype_constant(gen_acc, struct_type),
+
+		member_index_reg,
+
+		generate_cast_to_runtime_value(gen_acc, *new_value_reg, member_type),
+		generate_itype_constant(gen_acc, member_type)
+	};
+	auto struct2_ptr_reg = builder.CreateCall(f.llvm_f, args2, "");
+
+	generate_release(gen_acc, emit_f, *new_value_reg, member_type);
+	generate_release(gen_acc, emit_f, *parent_struct_ptr_reg, struct_type);
+
+	return struct2_ptr_reg;
+}
+
 static llvm::Value* generate_lookup_element_expression(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e, const expression_t::lookup_t& details){
 	QUARK_ASSERT(gen_acc.check_invariant());
 	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
@@ -998,8 +766,19 @@ static llvm::Value* generate_lookup_element_expression(llvm_code_generator_t& ge
 	else if(parent_type.is_json_value()){
 		QUARK_ASSERT(key_type.is_int() || key_type.is_string());
 
-		//	Notice that we only know at runtime if the json_value can be looked up: it needs to be json-object or a json-array. The key is either a string or an integer.
-		auto result = generate_lookup_json(gen_acc, emit_f, *parent_reg, *key_reg, key_type);
+		//	Notice that we only know at RUNTIME if the json_value can be looked up: it needs to be json-object or a
+		//	json-array. The key is either a string or an integer.
+
+		const auto f = find_function_def(gen_acc, "floyd_runtime__lookup_json");
+
+		std::vector<llvm::Value*> args = {
+			get_callers_fcp(gen_acc.interner, emit_f),
+			parent_reg,
+			generate_cast_to_runtime_value(gen_acc, *key_reg, key_type),
+			generate_itype_constant(gen_acc, key_type)
+		};
+		auto result = builder.CreateCall(f.llvm_f, args, "");
+
 		generate_release(gen_acc, emit_f, *parent_reg, parent_type);
 		generate_release(gen_acc, emit_f, *key_reg, key_type);
 		return result;
@@ -1023,7 +802,15 @@ static llvm::Value* generate_lookup_element_expression(llvm_code_generator_t& ge
 		QUARK_ASSERT(key_type.is_string());
 
 		const auto element_type0 = parent_type.get_dict_value_type();
-		auto element_value_uint64_reg = generate_lookup_dict(gen_acc, emit_f, *parent_reg, *key_reg);
+
+		const auto f = find_function_def(gen_acc, "floyd_runtime__lookup_dict");
+
+		std::vector<llvm::Value*> args2 = {
+			get_callers_fcp(gen_acc.interner, emit_f),
+			parent_reg,
+			key_reg
+		};
+		auto element_value_uint64_reg = builder.CreateCall(f.llvm_f, args2, "");
 		auto result_reg = generate_cast_from_runtime_value(gen_acc, *element_value_uint64_reg, element_type0);
 
 		generate_retain(gen_acc, emit_f, *result_reg, element_type0);
@@ -1170,10 +957,10 @@ static llvm::Value* generate_compare_values(llvm_code_generator_t& gen_acc, llvm
 	auto result = gen_acc.builder.CreateCall(def.llvm_f, args, "");
 
 	//??? Return i1 directly, no need to compare again.
-	auto result2 = gen_acc.builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_NE, result, llvm::ConstantInt::get(gen_acc.builder.getInt32Ty(), 0));
+//	auto result2 = gen_acc.builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_NE, result, llvm::ConstantInt::get(gen_acc.builder.getInt32Ty(), 0));
 
 	QUARK_ASSERT(gen_acc.check_invariant());
-	return result2;
+	return result;
 }
 
 
@@ -1353,16 +1140,16 @@ static llvm::Value* generate_conditional_operator_expression(llvm_code_generator
 	- In call's actual arguments types and output type.
 	- In function def
 */
-static llvm::Value* generate_call_expression(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e, const expression_t::call_t& details){
+static llvm::Value* generate_call_expression(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e0, const expression_t::call_t& details){
 	QUARK_ASSERT(gen_acc.check_invariant());
 	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
-	QUARK_ASSERT(e.check_invariant());
+	QUARK_ASSERT(e0.check_invariant());
 
 	auto& context = gen_acc.instance->context;
 	auto& builder = gen_acc.builder;
 
 	const auto callee_function_type = details.callee->get_output_type();
-	const auto resolved_call_return_type = e.get_output_type();
+	const auto resolved_call_return_type = e0.get_output_type();
 	//	IDEA: Build a complete resolved_function_type: argument types from the actual arguments and return = resolved_call_return_type.
 	//	This lets us select specialisation of calls, like "string push_back(string, int)" vs [bool] push_back([bool], bool)
 
@@ -1438,6 +1225,121 @@ static llvm::Value* generate_call_expression(llvm_code_generator_t& gen_acc, llv
 	return result;
 }
 
+
+//	Generates a call to the global function that implements the corecall.
+static llvm::Value* generate_fallthrough_corecall(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e, const expression_t::corecall_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+	QUARK_ASSERT(e.check_invariant());
+
+	//	Find function
+	const auto& symbols = gen_acc.scope_path[0];
+    const auto it = std::find_if(symbols.begin(), symbols.end(), [&details](const resolved_symbol_t& e) { return (std::string("$") + e.symbol_name) == details.call_name; } );
+    QUARK_ASSERT(it != symbols.end());
+	const auto function_type = std::make_shared<typeid_t>(it->symbol.get_type());
+	int global_index = static_cast<int>(it - symbols.begin());
+
+	const auto call_details = expression_t::call_t {
+		std::make_shared<expression_t>(expression_t::make_load2(variable_address_t::make_variable_address(-1, global_index), function_type)),
+		details.args
+	};
+
+	const auto e2 = expression_t::make_call(*call_details.callee, call_details.args, std::make_shared<typeid_t>(e.get_output_type()));
+	return generate_call_expression(gen_acc, emit_f, e2, call_details);
+}
+
+
+static llvm::Value* generate_corecall_expression(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e, const expression_t::corecall_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+	QUARK_ASSERT(e.check_invariant());
+
+	if(details.call_name == get_opcode(make_assert_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_to_string_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_to_pretty_string_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else if(details.call_name == get_opcode(make_typeof_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else if(details.call_name == get_opcode(make_update_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_size_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_find_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_exists_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_erase_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_push_back_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_subset_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_replace_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else if(details.call_name == get_opcode(make_script_to_jsonvalue_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_jsonvalue_to_script_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_value_to_jsonvalue_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_jsonvalue_to_value_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else if(details.call_name == get_opcode(make_get_json_type_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else if(details.call_name == get_opcode(make_map_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_map_string_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_filter_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_reduce_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_supermap_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else if(details.call_name == get_opcode(make_print_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+	else if(details.call_name == get_opcode(make_send_signature())){
+		return generate_fallthrough_corecall(gen_acc, emit_f, e, details);
+	}
+
+	else{
+		QUARK_ASSERT(false);
+	}
+}
+
+
+
 //	Evaluate each element and store it directly into the array.
 static void generate_fill_array(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, llvm::Value& element_ptr_reg, llvm::Type& element_type, const std::vector<expression_t>& elements){
 	QUARK_ASSERT(gen_acc.check_invariant());
@@ -1458,146 +1360,203 @@ static void generate_fill_array(llvm_code_generator_t& gen_acc, llvm::Function& 
 	}
 }
 
-/*
-		%struct.MYS_T = type { i64, i32, double }
 
-		; Function Attrs: noinline nounwind optnone
-		define void @test(%struct.MYS_T* noalias sret) #0 {
-		  %2 = alloca %struct.MYS_T, align 8
-		  %3 = getelementptr inbounds %struct.MYS_T, %struct.MYS_T* %2, i32 0, i32 0
-		  store i64 1311953686388150836, i64* %3, align 8
-		  %4 = getelementptr inbounds %struct.MYS_T, %struct.MYS_T* %2, i32 0, i32 1
-		  store i32 -559038737, i32* %4, align 8
-		  %5 = getelementptr inbounds %struct.MYS_T, %struct.MYS_T* %2, i32 0, i32 2
-		  store double 3.141500e+00, double* %5, align 8
-		  %6 = bitcast %struct.MYS_T* %0 to i8*
-		  %7 = bitcast %struct.MYS_T* %2 to i8*
-		  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %6, i8* %7, i64 24, i32 8, i1 false)
-		  ret void
+static llvm::Value* generate_construct_vector(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t::value_constructor_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+	QUARK_ASSERT(details.value_type.is_vector());
+
+	auto& context = gen_acc.instance->context;
+	auto& builder = gen_acc.builder;
+
+	const auto element_count = details.elements.size();
+	const auto element_type0 = details.value_type.get_vector_element_type();
+	auto& element_type1 = *get_exact_llvm_type(gen_acc.interner, element_type0);
+
+	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_vector");
+	const auto element_count_reg = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), element_count);
+	auto vec_ptr_reg = builder.CreateCall(f.llvm_f, { get_callers_fcp(gen_acc.interner, emit_f), element_count_reg }, "");
+	auto ptr_reg = generate_get_vec_element_ptr2(gen_acc, emit_f, *vec_ptr_reg);
+
+	if(element_type0.is_bool()){
+		//	Each bool element is a uint64_t ???
+		auto element_type = llvm::Type::getInt64Ty(context);
+		auto array_ptr_reg = builder.CreateCast(llvm::Instruction::CastOps::BitCast, ptr_reg, element_type->getPointerTo(), "");
+
+		//	Evaluate each element and store it directly into the the vector.
+		int element_index = 0;
+		for(const auto& arg: details.elements){
+			llvm::Value* element0_reg = generate_expression(gen_acc, emit_f, arg);
+			auto element_value_reg = builder.CreateCast(llvm::Instruction::CastOps::ZExt, element0_reg, make_runtime_value_type(context), "");
+			generate_array_element_store(builder, *array_ptr_reg, element_index, *element_value_reg);
+			element_index++;
 		}
-*/
+		return vec_ptr_reg;
+	}
+	else{
+		generate_fill_array(gen_acc, emit_f, *ptr_reg, element_type1, details.elements);
+		return vec_ptr_reg;
+	}
+}
+
+static llvm::Value* generate_construct_dict(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t::value_constructor_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+	QUARK_ASSERT(details.value_type.is_dict());
+
+	auto& builder = gen_acc.builder;
+
+	const auto element_type0 = details.value_type.get_dict_value_type();
+
+	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_dict");
+	auto dict_acc_ptr_reg = builder.CreateCall(f.llvm_f, { get_callers_fcp(gen_acc.interner, emit_f) }, "");
+
+	//	Elements are stored as pairs.
+	QUARK_ASSERT((details.elements.size() & 1) == 0);
+
+	const auto count = details.elements.size() / 2;
+	for(int element_index = 0 ; element_index < count ; element_index++){
+		llvm::Value* key0_reg = generate_expression(gen_acc, emit_f, details.elements[element_index * 2 + 0]);
+		llvm::Value* element0_reg = generate_expression(gen_acc, emit_f, details.elements[element_index * 2 + 1]);
+
+		const auto f2 = find_function_def(gen_acc, "floyd_runtime__store_dict_mutable");
+		std::vector<llvm::Value*> args2 = {
+			get_callers_fcp(gen_acc.interner, emit_f),
+			dict_acc_ptr_reg,
+			key0_reg,
+			generate_cast_to_runtime_value(gen_acc, *element0_reg, element_type0),
+			generate_itype_constant(gen_acc, element_type0)
+		};
+		builder.CreateCall(f2.llvm_f, args2, "");
+
+		generate_release(gen_acc, emit_f, *key0_reg, typeid_t::make_string());
+	}
+	return dict_acc_ptr_reg;
+}
+
+static llvm::Value* generate_construct_struct(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t::value_constructor_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+	QUARK_ASSERT(details.value_type.is_struct());
+
+	auto& builder = gen_acc.builder;
+	auto& context = gen_acc.module->getContext();
+
+	const auto target_type = details.value_type;
+	const auto element_count = details.elements.size();
+
+	const auto& struct_def = target_type.get_struct();
+	auto& exact_struct_type = *get_exact_struct_type(gen_acc.interner, target_type);
+	QUARK_ASSERT(struct_def._members.size() == element_count);
 
 
+	const llvm::DataLayout& data_layout = gen_acc.module->getDataLayout();
+	const llvm::StructLayout* layout = data_layout.getStructLayout(&exact_struct_type);
+	const auto struct_bytes = layout->getSizeInBytes();
 
+
+	const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_struct");
+	const auto size_reg = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), struct_bytes);
+	std::vector<llvm::Value*> args2 = {
+		get_callers_fcp(gen_acc.interner, emit_f),
+		size_reg
+	};
+	//	Returns STRUCT_T*.
+	auto generic_struct_ptr_reg = gen_acc.builder.CreateCall(f.llvm_f, args2, "");
+
+
+	//!!! We basically inline the entire constructor here -- bad idea? Maybe generate a construction function and call it.
+	auto base_ptr_reg = generate_get_struct_base_ptr(gen_acc, emit_f, *generic_struct_ptr_reg, target_type);
+
+	int member_index = 0;
+	for(const auto& m: struct_def._members){
+		const auto& arg = details.elements[member_index];
+		llvm::Value* member_value_reg = generate_expression(gen_acc, emit_f, arg);
+
+		const auto gep = std::vector<llvm::Value*>{
+			//	Struct array index.
+			builder.getInt32(0),
+
+			//	Struct member index.
+			builder.getInt32(member_index)
+		};
+		llvm::Value* member_ptr_reg = builder.CreateGEP(&exact_struct_type, base_ptr_reg, gep, "");
+		builder.CreateStore(member_value_reg, member_ptr_reg);
+
+		member_index++;
+	}
+	return generic_struct_ptr_reg;
+}
+
+
+static llvm::Value* generate_construct_primitive(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t::value_constructor_t& details){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
+//	QUARK_ASSERT(details.value_type.is_struct());
+
+	const auto target_type = details.value_type;
+	const auto element_count = details.elements.size();
+	QUARK_ASSERT(element_count == 1);
+
+	//	Construct a primitive, using int(113) or double(3.14)
+
+	auto element0_reg = generate_expression(gen_acc, emit_f, details.elements[0]);
+	const auto input_value_type = details.elements[0].get_output_type();
+
+	if(target_type.is_bool() || target_type.is_int() || target_type.is_double() || target_type.is_typeid()){
+		return element0_reg;
+	}
+
+	//	NOTICE: string -> json_value needs to be handled at runtime.
+
+	//	Automatically transform a json_value::string => string at runtime?
+	else if(target_type.is_string() && input_value_type.is_json_value()){
+		const auto f = find_function_def(gen_acc, "floyd_runtime__json_to_string");
+		std::vector<llvm::Value*> args = {
+			get_callers_fcp(gen_acc.interner, emit_f),
+			element0_reg
+		};
+		auto result = gen_acc.builder.CreateCall(f.llvm_f, args, "");
+
+		generate_release(gen_acc, emit_f, *element0_reg, input_value_type);
+		return result;
+	}
+	else if(target_type.is_json_value()){
+		//	Put a value_t into a json
+		const auto f = find_function_def(gen_acc, "floyd_runtime__allocate_json");
+		std::vector<llvm::Value*> args2 = {
+			get_callers_fcp(gen_acc.interner, emit_f),
+			generate_cast_to_runtime_value(gen_acc, *element0_reg, input_value_type),
+			generate_itype_constant(gen_acc, input_value_type)
+		};
+		auto result = gen_acc.builder.CreateCall(f.llvm_f, args2, "");
+
+		generate_release(gen_acc, emit_f, *element0_reg, input_value_type);
+		return result;
+	}
+	else{
+		return element0_reg;
+	}
+}
 
 static llvm::Value* generate_construct_value_expression(llvm_code_generator_t& gen_acc, llvm::Function& emit_f, const expression_t& e, const expression_t::value_constructor_t& details){
 	QUARK_ASSERT(gen_acc.check_invariant());
 	QUARK_ASSERT(check_emitting_function(gen_acc.interner, emit_f));
 	QUARK_ASSERT(e.check_invariant());
 
-	auto& context = gen_acc.instance->context;
-	auto& builder = gen_acc.builder;
-
-	const auto target_type = e.get_output_type();
-	const auto element_count = details.elements.size();
-
-	if(target_type.is_vector()){
-		const auto element_type0 = target_type.get_vector_element_type();
-		auto& element_type1 = *get_exact_llvm_type(gen_acc.interner, element_type0);
-
-		auto vec_ptr_reg = generate_alloc_vec(gen_acc, emit_f, element_count, typeid_to_compact_string(target_type));
-		auto ptr_reg = generate_get_vec_element_ptr2(gen_acc, emit_f, *vec_ptr_reg);
-
-
-		if(element_type0.is_bool()){
-			//	Each element is a uint64_t ???
-			auto element_type = llvm::Type::getInt64Ty(context);
-			auto array_ptr_reg = builder.CreateCast(llvm::Instruction::CastOps::BitCast, ptr_reg, element_type->getPointerTo(), "");
-
-			//	Evaluate each element and store it directly into the the vector.
-			int element_index = 0;
-			for(const auto& arg: details.elements){
-				llvm::Value* element0_reg = generate_expression(gen_acc, emit_f, arg);
-				auto element_value_reg = builder.CreateCast(llvm::Instruction::CastOps::ZExt, element0_reg, make_runtime_value_type(context), "");
-				generate_array_element_store(builder, *array_ptr_reg, element_index, *element_value_reg);
-				element_index++;
-			}
-			return vec_ptr_reg;
-		}
-		else{
-			generate_fill_array(gen_acc, emit_f, *ptr_reg, element_type1, details.elements);
-			return vec_ptr_reg;
-		}
+	if(details.value_type.is_vector()){
+		return generate_construct_vector(gen_acc, emit_f, details);
 	}
-
-	else if(target_type.is_dict()){
-		const auto element_type0 = target_type.get_dict_value_type();
-		auto dict_acc_ptr_reg = generate_alloc_dict(gen_acc, emit_f, typeid_to_compact_string(target_type));
-
-		//	Elements are stored as pairs.
-		QUARK_ASSERT((details.elements.size() & 1) == 0);
-		const auto count = details.elements.size() / 2;
-		for(int element_index = 0 ; element_index < count ; element_index++){
-
-			//	Retain-release should be correct.
-			llvm::Value* key0_reg = generate_expression(gen_acc, emit_f, details.elements[element_index * 2 + 0]);
-			llvm::Value* element0_reg = generate_expression(gen_acc, emit_f, details.elements[element_index * 2 + 1]);
-			generate_store_dict_mutable(gen_acc, emit_f, *dict_acc_ptr_reg, *key0_reg, *element0_reg, element_type0);
-
-			generate_release(gen_acc, emit_f, *key0_reg, typeid_t::make_string());
-		}
-		return dict_acc_ptr_reg;
+	else if(details.value_type.is_dict()){
+		return generate_construct_dict(gen_acc, emit_f, details);
 	}
-	else if(target_type.is_struct()){
-		const auto& struct_def = target_type.get_struct();
-		auto& exact_struct_type = *get_exact_struct_type(gen_acc.interner, target_type);
-		QUARK_ASSERT(struct_def._members.size() == element_count);
-
-		//!!! We basically inline the entire constructor here -- bad idea?
-
-		auto generic_struct_ptr_reg = generate_allocate_instance(gen_acc, emit_f, exact_struct_type);
-		auto base_ptr_reg = generate_get_struct_base_ptr(gen_acc, emit_f, *generic_struct_ptr_reg, target_type);
-
-		int member_index = 0;
-		for(const auto& m: struct_def._members){
-
-			//	Retain-release should be correct.
-
-			const auto& arg = details.elements[member_index];
-			llvm::Value* member_value_reg = generate_expression(gen_acc, emit_f, arg);
-
-			const auto gep = std::vector<llvm::Value*>{
-				//	Struct array index.
-				builder.getInt32(0),
-
-				//	Struct member index.
-				builder.getInt32(member_index)
-			};
-			llvm::Value* member_ptr_reg = builder.CreateGEP(&exact_struct_type, base_ptr_reg, gep, "");
-			builder.CreateStore(member_value_reg, member_ptr_reg);
-
-			member_index++;
-		}
-		return generic_struct_ptr_reg;
+	else if(details.value_type.is_struct()){
+		return generate_construct_struct(gen_acc, emit_f, details);
 	}
 
 	//	Construct a primitive, using int(113) or double(3.14)
 	else{
-		QUARK_ASSERT(element_count == 1);
-
-		auto element0_reg = generate_expression(gen_acc, emit_f, details.elements[0]);
-		const auto input_value_type = details.elements[0].get_output_type();
-
-		if(target_type.is_bool() || target_type.is_int() || target_type.is_double() || target_type.is_typeid()){
-			return element0_reg;
-		}
-
-		//	NOTICE: string -> json_value needs to be handled at runtime.
-
-		//	Automatically transform a json_value::string => string at runtime?
-		else if(target_type.is_string() && input_value_type.is_json_value()){
-			auto result = generate_json_to_string(gen_acc, emit_f, *element0_reg);
-			generate_release(gen_acc, emit_f, *element0_reg, input_value_type);
-			return result;
-		}
-		else if(target_type.is_json_value()){
-			auto result = generate_alloc_json(gen_acc, emit_f, *element0_reg, input_value_type);
-			generate_release(gen_acc, emit_f, *element0_reg, input_value_type);
-			return result;
-		}
-		else{
-			return element0_reg;
-		}
+		return generate_construct_primitive(gen_acc, emit_f, details);
 	}
 }
 
@@ -1644,6 +1603,9 @@ static llvm::Value* generate_expression(llvm_code_generator_t& gen_acc, llvm::Fu
 		llvm::Value* operator()(const expression_t::call_t& expr) const{
 			return generate_call_expression(gen_acc, emit_f, e, expr);
 		}
+		llvm::Value* operator()(const expression_t::corecall_t& expr) const{
+			return generate_corecall_expression(gen_acc, emit_f, e, expr);
+		}
 
 
 		llvm::Value* operator()(const expression_t::struct_definition_expr_t& expr) const{
@@ -1676,6 +1638,9 @@ static llvm::Value* generate_expression(llvm_code_generator_t& gen_acc, llvm::Fu
 		llvm::Value* operator()(const expression_t::resolve_member_t& expr) const{
 			return generate_resolve_member_expression(gen_acc, emit_f, e, expr);
 		}
+		llvm::Value* operator()(const expression_t::update_member_t& expr) const{
+			return generate_update_member_expression(gen_acc, emit_f, e, expr);
+		}
 		llvm::Value* operator()(const expression_t::lookup_t& expr) const{
 			return generate_lookup_element_expression(gen_acc, emit_f, e, expr);
 		}
@@ -1684,7 +1649,7 @@ static llvm::Value* generate_expression(llvm_code_generator_t& gen_acc, llvm::Fu
 		}
 	};
 
-	llvm::Value* result = std::visit(visitor_t{ gen_acc, e, emit_f }, e._contents);
+	llvm::Value* result = std::visit(visitor_t{ gen_acc, e, emit_f }, e._expression_variant);
 	return result;
 }
 
@@ -2119,11 +2084,9 @@ static llvm::Value* generate_global(llvm_code_generator_t& gen_acc, llvm::Functi
 	QUARK_ASSERT(symbol.check_invariant());
 
 	auto& module = *gen_acc.module;
-	auto& context = gen_acc.module->getContext();
 
 	const auto type0 = symbol.get_type();
 	const auto itype = get_exact_llvm_type(gen_acc.interner, type0);
-//	const auto itype = type0.is_struct() ? get_generic_struct_type(gen_acc.interner)->getPointerTo() : get_exact_llvm_type(gen_acc.interner, type0);
 
 	if(symbol._init.is_undefined()){
 		return generate_global0(module, symbol_name, *itype, nullptr);
@@ -2140,7 +2103,6 @@ static llvm::Value* generate_global(llvm_code_generator_t& gen_acc, llvm::Functi
 				constIntValue = CI->getSExtValue();
 			}
 */
-
 		}
 		else{
 			return generate_global0(module, symbol_name, *itype, nullptr);
@@ -2355,7 +2317,7 @@ static std::vector<function_def_t> make_all_function_prototypes(llvm::Module& mo
 }
 
 /*
-//	GENERATE CODE for floyd_runtime_init()
+	GENERATE CODE for floyd_runtime_init()
 	Floyd's global instructions are packed into the "floyd_runtime_init"-function. LLVM doesn't have global instructions.
 	All Floyd's global statements becomes instructions in floyd_init()-function that is called by Floyd runtime before any other function is called.
 */
@@ -2379,10 +2341,6 @@ static void generate_floyd_runtime_init(llvm_code_generator_t& gen_acc, const bo
 		//	Global statements, using the global symbol scope.
 		//	This includes init2-statements to initialise global variables.
 		generate_statements(gen_acc, emit_f, globals._statements);
-
-		for(const auto& e: gen_acc.global_constructors){
-			e->store_constant(gen_acc, emit_f);
-		}
 
 		builder.CreateBr(destructBB);
 	}
@@ -2495,8 +2453,6 @@ static std::pair<std::unique_ptr<llvm::Module>, std::vector<function_def_t>> gen
 
 	return { std::move(module), gen_acc.function_defs };
 }
-
-
 
 
 

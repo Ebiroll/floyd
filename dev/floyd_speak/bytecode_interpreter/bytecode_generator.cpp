@@ -24,6 +24,7 @@
 
 #include "pass3.h"
 #include "floyd_interpreter.h"
+#include "floyd_runtime.h"
 
 #include <cmath>
 #include <algorithm>
@@ -154,6 +155,8 @@ struct expression_gen_t {
 expression_gen_t bcgen_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const expression_t& e, const bcgen_body_t& body);
 
 bcgen_body_t bcgen_body_block(bcgenerator_t& gen_acc, const body_t& body);
+
+static expression_gen_t bcgen_call_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& call_output_type, const expression_t::call_t& details, const bcgen_body_t& body);
 
 
 
@@ -702,6 +705,215 @@ expression_gen_t bcgen_resolve_member_expression(bcgenerator_t& gen_acc, const v
 	return { body_acc, target_reg2, intern_type(gen_acc, *e._output_type) };
 }
 
+
+
+static function_id_t XXXXXXXX____get_host_function_id(bcgenerator_t& gen_acc, const expression_t::call_t& call_e){
+	QUARK_ASSERT(gen_acc.check_invariant());
+
+	const auto load2 = std::get_if<expression_t::load2_t>(&call_e.callee->_expression_variant);
+
+	if(load2 && load2->address._parent_steps == -1){
+		const auto global_index = load2->address._index;
+
+		QUARK_ASSERT(global_index >= 0 && global_index < gen_acc._globals._symbol_table._symbols.size());
+		const auto& global_symbol = gen_acc._globals._symbol_table._symbols[global_index];
+		if(global_symbol.second._init.is_function()){
+			const auto function_id = global_symbol.second._init.get_function_value();
+			const auto& function_def = gen_acc._ast_imm->_tree._function_defs[function_id];
+
+			const auto host_func = std::get<function_definition_t::host_func_t>(function_def->_contents);
+
+			return host_func._host_function_id;
+		}
+		else{
+			return -1;
+		}
+	}
+	else{
+		return -1;
+	}
+}
+
+
+//	Generates a call to the global function that implements the corecall.
+expression_gen_t bcgen_make_fallthrough_corecall(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& call_output_type, const expression_t::corecall_t& details, const bcgen_body_t& body){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(target_reg.check_invariant());
+	QUARK_ASSERT(call_output_type.check_invariant());
+	QUARK_ASSERT(body.check_invariant());
+
+	auto body_acc = body;
+
+
+	//	Find function
+	const auto& symbols = gen_acc._globals._symbol_table._symbols;
+    const auto it = std::find_if(symbols.begin(), symbols.end(), [&details](const std::pair<std::string, symbol_t>& e) {return (std::string("$") + e.first) == details.call_name; } );
+    QUARK_ASSERT(it != symbols.end());
+	const auto function_type = std::make_shared<typeid_t>(it->second._value_type);
+	int global_index = static_cast<int>(it - symbols.begin());
+
+	const auto call_details = expression_t::call_t {
+		std::make_shared<expression_t>(expression_t::make_load2(variable_address_t::make_variable_address(-1, global_index), function_type)),
+		details.args
+	};
+
+	const auto result = bcgen_call_expression(gen_acc, target_reg, call_output_type, call_details, body);
+	body_acc = result._body;
+	const auto target_reg2 = result._out;
+
+	QUARK_ASSERT(body_acc.check_invariant());
+	return { body_acc, target_reg2, intern_type(gen_acc, call_output_type) };
+}
+
+
+
+
+expression_gen_t make_update_call(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& output_type, const expression_t& parent, const expression_t& key, const expression_t& new_value, const bcgen_body_t& body){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(output_type.check_invariant());
+	QUARK_ASSERT(parent.check_invariant());
+	QUARK_ASSERT(key.check_invariant());
+	QUARK_ASSERT(new_value.check_invariant());
+	QUARK_ASSERT(body.check_invariant());
+
+	const auto corecall_details = expression_t::corecall_t {
+		get_opcode(make_update_signature()),
+		{ parent, key, new_value }
+	};
+
+	return bcgen_make_fallthrough_corecall(gen_acc, target_reg, output_type, corecall_details, body);
+}
+
+static bc_opcode convert_call_to_pushback_opcode(const typeid_t& arg1_type){
+	QUARK_ASSERT(arg1_type.check_invariant());
+
+	if(arg1_type.is_vector()){
+		if(encode_as_vector_w_inplace_elements(arg1_type)){
+			return bc_opcode::k_pushback_vector_w_inplace_elements;
+		}
+		else{
+			return bc_opcode::k_pushback_vector_w_external_elements;
+		}
+	}
+	else if(arg1_type.is_string()){
+		return bc_opcode::k_pushback_string;
+	}
+	else{
+		return bc_opcode::k_nop;
+	}
+}
+
+static expression_gen_t bcgen_corecall_push_back_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& call_output_type, const expression_t::corecall_t& details, const bcgen_body_t& body){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(target_reg.check_invariant());
+	QUARK_ASSERT(call_output_type.check_invariant());
+	QUARK_ASSERT(body.check_invariant());
+
+	QUARK_ASSERT(details.args.size() == 2);
+
+	auto body_acc = body;
+
+	QUARK_ASSERT(call_output_type == details.args[0].get_output_type());
+
+	const auto arg1_type = details.args[0].get_output_type();
+	bc_opcode opcode = convert_call_to_pushback_opcode(arg1_type);
+	if(opcode != bc_opcode::k_nop){
+		//	push_back() used DYN-arguments which are resolved at runtime. When we make opcodes we need to check at compile time = now.
+		if(arg1_type.is_string() && details.args[1].get_output_type().is_int() == false){
+			quark::throw_runtime_error("Bad element to push_back(). Require push_back(string, int)");
+		}
+
+		const auto& arg1_expr = bcgen_expression(gen_acc, {}, details.args[0], body_acc);
+		body_acc = arg1_expr._body;
+
+		const auto& arg2_expr = bcgen_expression(gen_acc, {}, details.args[1], body_acc);
+		body_acc = arg2_expr._body;
+
+		const auto target_reg2 = target_reg.is_empty() ? add_local_temp(body_acc, call_output_type, "temp: result for k_pushback_x") : target_reg;
+
+		body_acc._instrs.push_back(bcgen_instruction_t(opcode, target_reg2, arg1_expr._out, arg2_expr._out));
+		QUARK_ASSERT(body_acc.check_invariant());
+		return { body_acc, target_reg2, intern_type(gen_acc, arg1_type) };
+	}
+	else{
+		throw std::exception();
+	}
+}
+
+
+
+//	a = size(b)
+static bc_opcode convert_call_to_size_opcode(const typeid_t& arg1_type){
+	QUARK_ASSERT(arg1_type.check_invariant());
+
+	if(arg1_type.is_vector()){
+		if(encode_as_vector_w_inplace_elements(arg1_type)){
+			return bc_opcode::k_get_size_vector_w_inplace_elements;
+		}
+		else{
+			return bc_opcode::k_get_size_vector_w_external_elements;
+		}
+	}
+	else if(arg1_type.is_dict()){
+		if(encode_as_dict_w_inplace_values(arg1_type)){
+			return bc_opcode::k_get_size_dict_w_inplace_values;
+		}
+		else{
+			return bc_opcode::k_get_size_dict_w_external_values;
+		}
+	}
+	else if(arg1_type.is_string()){
+		return bc_opcode::k_get_size_string;
+	}
+	else if(arg1_type.is_json_value()){
+		return bc_opcode::k_get_size_jsonvalue;
+	}
+	else{
+		return bc_opcode::k_nop;
+	}
+}
+
+static expression_gen_t bcgen_corecall_size_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& call_output_type, const expression_t::corecall_t& details, const bcgen_body_t& body){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(target_reg.check_invariant());
+	QUARK_ASSERT(call_output_type.check_invariant());
+	QUARK_ASSERT(body.check_invariant());
+	QUARK_ASSERT(details.args.size() == 1);
+
+	const auto arg1_type = details.args[0].get_output_type();
+
+	auto body_acc = body;
+
+	bc_opcode opcode = convert_call_to_size_opcode(arg1_type);
+	if(opcode != bc_opcode::k_nop){
+		const auto& arg1_expr = bcgen_expression(gen_acc, {}, details.args[0], body_acc);
+		body_acc = arg1_expr._body;
+
+		const auto target_reg2 = target_reg.is_empty() ? add_local_temp(body_acc, call_output_type, "temp: result for k_get_size_vector_x") : target_reg;
+		body_acc._instrs.push_back(bcgen_instruction_t(opcode, target_reg2, arg1_expr._out, make_imm_int(0)));
+		QUARK_ASSERT(body_acc.check_invariant());
+		return { body_acc, target_reg2, intern_type(gen_acc, make_size_signature()._function_type.get_function_return()) };
+	}
+	else{
+		throw std::exception();
+	}
+}
+
+
+
+//	Converts expression to a call to corecall() function.
+expression_gen_t bcgen_update_member_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const expression_t& e, const expression_t::update_member_t& details, const bcgen_body_t& body){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(details.parent_address->get_output_type().is_struct());
+	QUARK_ASSERT(body.check_invariant());
+
+	const auto struct_def = e.get_output_type().get_struct();
+	const auto member_name = struct_def._members[details.member_index]._name;
+	const auto member_name_expr = expression_t::make_literal_string(member_name);
+	return make_update_call(gen_acc, target_reg, e.get_output_type(), *details.parent_address, member_name_expr, *details.new_value, body);
+}
+
+
 expression_gen_t bcgen_lookup_element_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const expression_t& e, const expression_t::lookup_t& details, const bcgen_body_t& body){
 	QUARK_ASSERT(gen_acc.check_invariant());
 	QUARK_ASSERT(e.check_invariant());
@@ -876,82 +1088,6 @@ call_setup_t gen_call_setup(bcgenerator_t& gen_acc, const std::vector<typeid_t>&
 	return { body_acc, exts, stack_count };
 }
 
-function_id_t get_host_function_id(bcgenerator_t& gen_acc, const expression_t::call_t& call_e){
-	QUARK_ASSERT(gen_acc.check_invariant());
-
-	const auto load2 = std::get_if<expression_t::load2_t>(&call_e.callee->_contents);
-
-	if(load2 && load2->address._parent_steps == -1){
-		const auto global_index = load2->address._index;
-
-		QUARK_ASSERT(global_index >= 0 && global_index < gen_acc._globals._symbol_table._symbols.size());
-		const auto& global_symbol = gen_acc._globals._symbol_table._symbols[global_index];
-		if(global_symbol.second._init.is_function()){
-			const auto function_id = global_symbol.second._init.get_function_value();
-			const auto& function_def = gen_acc._ast_imm->_tree._function_defs[function_id];
-
-			const auto host_func = std::get<function_definition_t::host_func_t>(function_def->_contents);
-
-			return host_func._host_function_id;
-		}
-		else{
-			return -1;
-		}
-	}
-	else{
-		return -1;
-	}
-}
-
-//	a = size(b)
-bc_opcode convert_call_to_size_opcode(const typeid_t& arg1_type){
-	QUARK_ASSERT(arg1_type.check_invariant());
-
-	if(arg1_type.is_vector()){
-		if(encode_as_vector_w_inplace_elements(arg1_type)){
-			return bc_opcode::k_get_size_vector_w_inplace_elements;
-		}
-		else{
-			return bc_opcode::k_get_size_vector_w_external_elements;
-		}
-	}
-	else if(arg1_type.is_dict()){
-		if(encode_as_dict_w_inplace_values(arg1_type)){
-			return bc_opcode::k_get_size_dict_w_inplace_values;
-		}
-		else{
-			return bc_opcode::k_get_size_dict_w_external_values;
-		}
-	}
-	else if(arg1_type.is_string()){
-		return bc_opcode::k_get_size_string;
-	}
-	else if(arg1_type.is_json_value()){
-		return bc_opcode::k_get_size_jsonvalue;
-	}
-	else{
-		return bc_opcode::k_nop;
-	}
-}
-
-bc_opcode convert_call_to_pushback_opcode(const typeid_t& arg1_type){
-	QUARK_ASSERT(arg1_type.check_invariant());
-
-	if(arg1_type.is_vector()){
-		if(encode_as_vector_w_inplace_elements(arg1_type)){
-			return bc_opcode::k_pushback_vector_w_inplace_elements;
-		}
-		else{
-			return bc_opcode::k_pushback_vector_w_external_elements;
-		}
-	}
-	else if(arg1_type.is_string()){
-		return bc_opcode::k_pushback_string;
-	}
-	else{
-		return bc_opcode::k_nop;
-	}
-}
 
 /*
 	Handles a call-expression. Output is one of these:
@@ -959,9 +1095,9 @@ bc_opcode convert_call_to_pushback_opcode(const typeid_t& arg1_type){
 	- A call expression
 	- A hard-coded opcode like size() and push_back().
 */
-expression_gen_t bcgen_call_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const expression_t& e, const expression_t::call_t& details, const bcgen_body_t& body){
+static expression_gen_t bcgen_call_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& call_output_type, const expression_t::call_t& details, const bcgen_body_t& body){
 	QUARK_ASSERT(gen_acc.check_invariant());
-	QUARK_ASSERT(e.check_invariant());
+	QUARK_ASSERT(call_output_type.check_invariant());
 	QUARK_ASSERT(body.check_invariant());
 
 	auto body_acc = body;
@@ -971,89 +1107,145 @@ expression_gen_t bcgen_call_expression(bcgenerator_t& gen_acc, const variable_ad
 	const auto function_type = details.callee->get_output_type();
 	const auto function_def_arg_types = function_type.get_function_args();
 	QUARK_ASSERT(callee_arg_count == function_def_arg_types.size());
-	const auto return_type = e.get_output_type();
+	const auto return_type = call_output_type;
 
 	QUARK_ASSERT(callee_arg_count == function_def_arg_types.size());
 	const auto arg_count = callee_arg_count;
 
-	auto host_function_id = get_host_function_id(gen_acc, details);
+	body_acc._instrs.push_back(bcgen_instruction_t(bc_opcode::k_push_frame_ptr, {}, {}, {} ));
 
-	//	a = size(b)
-	if(host_function_id == 1007 && arg_count == 1){
-		const auto arg1_type = details.args[0].get_output_type();
+	const auto& callee_expr = bcgen_expression(gen_acc, {}, *details.callee, body_acc);
+	body_acc = callee_expr._body;
 
-		bc_opcode opcode = convert_call_to_size_opcode(arg1_type);
-		if(opcode != bc_opcode::k_nop){
-			const auto& arg1_expr = bcgen_expression(gen_acc, {}, details.args[0], body_acc);
-			body_acc = arg1_expr._body;
+	const auto call_setup = gen_call_setup(gen_acc, function_def_arg_types, &details.args[0], callee_arg_count, body_acc);
+	body_acc = call_setup._body;
 
-			const auto target_reg2 = target_reg.is_empty() ? add_local_temp(body_acc, e.get_output_type(), "temp: result for k_get_size_vector_x") : target_reg;
-			body_acc._instrs.push_back(bcgen_instruction_t(opcode, target_reg2, arg1_expr._out, make_imm_int(0)));
-			QUARK_ASSERT(body_acc.check_invariant());
-			return { body_acc, target_reg2, intern_type(gen_acc, return_type) };
-		}
-		else{
-		}
+	const auto target_reg2 = target_reg.is_empty() ? add_local_temp(body_acc, call_output_type, "temp: call return") : target_reg;
+
+	//??? No need to allocate return register if functions returns void.
+	QUARK_ASSERT(return_type.is_any() == false && return_type.is_undefined() == false)
+	body_acc._instrs.push_back(bcgen_instruction_t(
+		bc_opcode::k_call,
+		target_reg2,
+		callee_expr._out,
+		make_imm_int(arg_count)
+	));
+
+	const auto extbits = pack_bools(call_setup._exts);
+	body_acc._instrs.push_back(bcgen_instruction_t(bc_opcode::k_popn, make_imm_int(call_setup._stack_count), make_imm_int(extbits), {} ));
+	body_acc._instrs.push_back(bcgen_instruction_t(bc_opcode::k_pop_frame_ptr, {}, {}, {} ));
+
+	QUARK_ASSERT(body_acc.check_invariant());
+	return { body_acc, target_reg2, intern_type(gen_acc, return_type) };
+}
+
+
+
+
+
+
+
+
+
+static expression_gen_t bcgen_corecall_expression(bcgenerator_t& gen_acc, const variable_address_t& target_reg, const typeid_t& call_output_type, const expression_t::corecall_t& details, const bcgen_body_t& body){
+	QUARK_ASSERT(gen_acc.check_invariant());
+	QUARK_ASSERT(target_reg.check_invariant());
+	QUARK_ASSERT(call_output_type.check_invariant());
+	QUARK_ASSERT(body.check_invariant());
+
+
+	if(details.call_name == get_opcode(make_assert_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_to_string_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_to_pretty_string_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
 	}
 
-	//	a = push_back(b, c)
-	else if(host_function_id == 1011 && arg_count == 2){
-		QUARK_ASSERT(e.get_output_type() == details.args[0].get_output_type());
 
-		const auto arg1_type = details.args[0].get_output_type();
-		bc_opcode opcode = convert_call_to_pushback_opcode(arg1_type);
-		if(opcode != bc_opcode::k_nop){
-			//	push_back() used DYN-arguments which are resolved at runtime. When we make opcodes we need to check at compile time = now.
-			if(arg1_type.is_string() && details.args[1].get_output_type().is_int() == false){
-				quark::throw_runtime_error("Bad element to push_back(). Require push_back(string, int)");
-			}
-
-			const auto& arg1_expr = bcgen_expression(gen_acc, {}, details.args[0], body_acc);
-			body_acc = arg1_expr._body;
-
-			const auto& arg2_expr = bcgen_expression(gen_acc, {}, details.args[1], body_acc);
-			body_acc = arg2_expr._body;
-
-			const auto target_reg2 = target_reg.is_empty() ? add_local_temp(body_acc, e.get_output_type(), "temp: result for k_pushback_x") : target_reg;
-
-			body_acc._instrs.push_back(bcgen_instruction_t(opcode, target_reg2, arg1_expr._out, arg2_expr._out));
-			QUARK_ASSERT(body_acc.check_invariant());
-			return { body_acc, target_reg2, intern_type(gen_acc, return_type) };
-		}
-		else{
-		}
+	else if(details.call_name == get_opcode(make_typeof_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
 	}
 
 
-	//	Normal function call.
-	{
-		body_acc._instrs.push_back(bcgen_instruction_t(bc_opcode::k_push_frame_ptr, {}, {}, {} ));
+	else if(details.call_name == get_opcode(make_update_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_size_signature())){
+		return bcgen_corecall_size_expression(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_find_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_exists_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_erase_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_push_back_signature())){
+		return bcgen_corecall_push_back_expression(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_subset_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_replace_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
 
-		const auto& callee_expr = bcgen_expression(gen_acc, {}, *details.callee, body_acc);
-		body_acc = callee_expr._body;
 
-		const auto call_setup = gen_call_setup(gen_acc, function_def_arg_types, &details.args[0], callee_arg_count, body_acc);
-		body_acc = call_setup._body;
+	else if(details.call_name == get_opcode(make_script_to_jsonvalue_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_jsonvalue_to_script_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_value_to_jsonvalue_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_jsonvalue_to_value_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
 
-		const auto target_reg2 = target_reg.is_empty() ? add_local_temp(body_acc, e.get_output_type(), "temp: call return") : target_reg;
 
-		//??? No need to allocate return register if functions returns void.
-		QUARK_ASSERT(return_type.is_any() == false && return_type.is_undefined() == false)
-		body_acc._instrs.push_back(bcgen_instruction_t(
-			bc_opcode::k_call,
-			target_reg2,
-			callee_expr._out,
-			make_imm_int(arg_count)
-		));
+	else if(details.call_name == get_opcode(make_get_json_type_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
 
-		const auto extbits = pack_bools(call_setup._exts);
-		body_acc._instrs.push_back(bcgen_instruction_t(bc_opcode::k_popn, make_imm_int(call_setup._stack_count), make_imm_int(extbits), {} ));
-		body_acc._instrs.push_back(bcgen_instruction_t(bc_opcode::k_pop_frame_ptr, {}, {}, {} ));
 
-		QUARK_ASSERT(body_acc.check_invariant());
-		return { body_acc, target_reg2, intern_type(gen_acc, return_type) };
+	else if(details.call_name == get_opcode(make_map_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_map_string_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_filter_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_reduce_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_supermap_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+
+
+	else if(details.call_name == get_opcode(make_print_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+	else if(details.call_name == get_opcode(make_send_signature())){
+		return bcgen_make_fallthrough_corecall(gen_acc, target_reg, call_output_type, details, body);
+	}
+
+
+	else{
+		QUARK_ASSERT(false);
 	}
 }
+
+
 
 //??? Submit dest-register to all gen-functions = minimize temps.
 //??? Wrap itype in struct to make it typesafe.
@@ -1467,7 +1659,10 @@ expression_gen_t bcgen_expression(bcgenerator_t& gen_acc, const variable_address
 		}
 
 		expression_gen_t operator()(const expression_t::call_t& expr) const{
-			return bcgen_call_expression(gen_acc, target_reg, e, expr, body);
+			return bcgen_call_expression(gen_acc, target_reg, e.get_output_type(), expr, body);
+		}
+		expression_gen_t operator()(const expression_t::corecall_t& expr) const{
+			return bcgen_corecall_expression(gen_acc, target_reg, e.get_output_type(), expr, body);
 		}
 
 		expression_gen_t operator()(const expression_t::struct_definition_expr_t& expr) const{
@@ -1489,6 +1684,9 @@ expression_gen_t bcgen_expression(bcgenerator_t& gen_acc, const variable_address
 		expression_gen_t operator()(const expression_t::resolve_member_t& expr) const{
 			return bcgen_resolve_member_expression(gen_acc, target_reg, e, expr, body);
 		}
+		expression_gen_t operator()(const expression_t::update_member_t& expr) const{
+			return bcgen_update_member_expression(gen_acc, target_reg, e, expr, body);
+		}
 		expression_gen_t operator()(const expression_t::lookup_t& expr) const{
 			return bcgen_lookup_element_expression(gen_acc, target_reg, e, expr, body);
 		}
@@ -1497,7 +1695,7 @@ expression_gen_t bcgen_expression(bcgenerator_t& gen_acc, const variable_address
 		}
 	};
 
-	auto result = std::visit(visitor_t{ gen_acc, target_reg, e, body }, e._contents);
+	auto result = std::visit(visitor_t{ gen_acc, target_reg, e, body }, e._expression_variant);
 	return result;
 }
 

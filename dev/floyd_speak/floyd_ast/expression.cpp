@@ -210,6 +210,9 @@ bool expression_t::check_types_resolved() const{
 		bool operator()(const call_t& e) const{
 			return e.callee->check_types_resolved() && check_types_resolved(e.args);
 		}
+		bool operator()(const corecall_t& e) const{
+			return check_types_resolved(e.args);
+		}
 
 
 		bool operator()(const struct_definition_expr_t& e) const{
@@ -228,6 +231,9 @@ bool expression_t::check_types_resolved() const{
 		bool operator()(const resolve_member_t& e) const{
 			return e.parent_address->check_types_resolved();
 		}
+		bool operator()(const update_member_t& e) const{
+			return e.parent_address->check_types_resolved();
+		}
 		bool operator()(const lookup_t& e) const{
 			return e.parent_address->check_types_resolved() && e.lookup_key->check_types_resolved();
 		}
@@ -236,7 +242,7 @@ bool expression_t::check_types_resolved() const{
 		}
 	};
 
-	bool result = std::visit(visitor_t{}, _contents);
+	bool result = std::visit(visitor_t{}, _expression_variant);
 	return result;
 }
 
@@ -354,6 +360,13 @@ json_t expression_to_json_internal(const expression_t& e){
 			}
 			return maker__call(expression_to_json(*e.callee), args);
 		}
+		json_t operator()(const expression_t::corecall_t& e) const{
+			vector<json_t> args;
+			for(const auto& m: e.args){
+				args.push_back(expression_to_json(m));
+			}
+			return maker__corecall(e.call_name, args);
+		}
 
 
 		json_t operator()(const expression_t::struct_definition_expr_t& e) const{
@@ -371,6 +384,15 @@ json_t expression_to_json_internal(const expression_t& e){
 
 		json_t operator()(const expression_t::resolve_member_t& e) const{
 			return make_expression2(expr.location, expression_opcode_t::k_resolve_member, expression_to_json(*e.parent_address), json_t(e.member_name));
+		}
+		json_t operator()(const expression_t::update_member_t& e) const{
+			return make_expression3(
+				expr.location,
+				expression_opcode_t::k_update_member,
+				expression_to_json(*e.parent_address),
+				json_t(e.member_index),
+				expression_to_json(*e.new_value)
+			);
 		}
 		json_t operator()(const expression_t::lookup_t& e) const{
 			return make_expression2(
@@ -390,7 +412,7 @@ json_t expression_to_json_internal(const expression_t& e){
 		}
 	};
 
-	const json_t result = std::visit(visitor_t{e}, e._contents);
+	const json_t result = std::visit(visitor_t{e}, e._expression_variant);
 	return result;
 }
 
@@ -514,6 +536,20 @@ expression_t astjson_to_expression(const json_t& e){
 
 		return expression_t::make_call(function_expr, args2, annotated_type);
 	}
+	else if(op == expression_opcode_t::k_corecall){
+		QUARK_ASSERT(e.get_array_size() == 3 || e.get_array_size() == 4);
+
+		const auto function_name = e.get_array_n(1).get_string();
+		const auto args = e.get_array_n(2);
+		vector<expression_t> args2;
+		for(const auto& arg: args.get_array()){
+			args2.push_back(astjson_to_expression(arg));
+		}
+
+		const auto annotated_type = get_optional_typeid(e, 3);
+
+		return expression_t::make_corecall(function_name, args2, annotated_type);
+	}
 	else if(op == expression_opcode_t::k_resolve_member){
 		QUARK_ASSERT(e.get_array_size() == 3 || e.get_array_size() == 4);
 
@@ -521,6 +557,15 @@ expression_t astjson_to_expression(const json_t& e){
 		const auto member = e.get_array_n(2).get_string();
 		const auto annotated_type = get_optional_typeid(e, 3);
 		return expression_t::make_resolve_member(base_expr, member, annotated_type);
+	}
+	else if(op == expression_opcode_t::k_update_member){
+		QUARK_ASSERT(e.get_array_size() == 4 || e.get_array_size() == 5);
+
+		const auto base_expr = astjson_to_expression(e.get_array_n(1));
+		const auto member_index = e.get_array_n(2).get_number();
+		const auto new_value_expr = astjson_to_expression(e.get_array_n(3));
+		const auto annotated_type = get_optional_typeid(e, 4);
+		return expression_t::make_update_member(base_expr, (int)member_index, new_value_expr, annotated_type);
 	}
 	else if(op == expression_opcode_t::k_load){
 		QUARK_ASSERT(e.get_array_size() == 2 || e.get_array_size() == 3);
@@ -597,6 +642,9 @@ expression_type get_opcode(const expression_t& e){
 		expression_type operator()(const expression_t::call_t& e) const{
 			return expression_type::k_call;
 		}
+		expression_type operator()(const expression_t::corecall_t& e) const{
+			return expression_type::k_corecall;
+		}
 
 
 		expression_type operator()(const expression_t::struct_definition_expr_t& e) const{
@@ -615,6 +663,9 @@ expression_type get_opcode(const expression_t& e){
 		expression_type operator()(const expression_t::resolve_member_t& e) const{
 			return expression_type::k_resolve_member;
 		}
+		expression_type operator()(const expression_t::update_member_t& e) const{
+			return expression_type::k_update_member;
+		}
 		expression_type operator()(const expression_t::lookup_t& e) const{
 			return expression_type::k_lookup_element;
 		}
@@ -622,7 +673,7 @@ expression_type get_opcode(const expression_t& e){
 			return expression_type::k_value_constructor;
 		}
 	};
-	return std::visit(visitor_t{}, e._contents);
+	return std::visit(visitor_t{}, e._expression_variant);
 }
 
 
@@ -632,7 +683,7 @@ QUARK_UNIT_TEST("", "", "", ""){
 
 	QUARK_ASSERT(e.check_invariant());
 	QUARK_ASSERT(
-		std::get<expression_t::literal_exp_t>(e._contents).value.get_string_value() == "hello"
+		std::get<expression_t::literal_exp_t>(e._expression_variant).value.get_string_value() == "hello"
 	);
 
 	const auto copy = e;

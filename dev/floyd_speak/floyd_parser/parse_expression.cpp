@@ -543,9 +543,30 @@ std::pair<json_t, seq_t> parse_optional_operation_rightward(const seq_t& p0, con
 				if(a_pos.first._has_keys){
 					throw_compiler_error_nopos("Cannot name arguments in function call!");
 				}
+
 				const auto values = get_values(a_pos.first);
-				const auto call = maker__call(lhs, values);
-				return parse_optional_operation_rightward(a_pos.second, call, precedence);
+#if 0
+				//	Detect corecall functions, like update().
+				if(lhs == json_t::make_array({ "@" , keyword_t::k_update }) && values.size() == 3){
+					const auto call = maker__corecall("$update", values);
+					return parse_optional_operation_rightward(a_pos.second, call, precedence);
+				}
+				else if(lhs == json_t::make_array({ "@" , keyword_t::k_push_back }) && values.size() == 2){
+					const auto call = maker__corecall("$push_back", values);
+					return parse_optional_operation_rightward(a_pos.second, call, precedence);
+				}
+				else if(lhs == json_t::make_array({ "@" , keyword_t::k_size }) && values.size() == 1){
+					const auto call = maker__corecall("$size", values);
+					return parse_optional_operation_rightward(a_pos.second, call, precedence);
+				}
+				else{
+#endif
+					const auto call = maker__call(lhs, values);
+					return parse_optional_operation_rightward(a_pos.second, call, precedence);
+#if 0
+				}
+#endif
+
 			}
 
 			//	Member access
@@ -1321,6 +1342,20 @@ QUARK_UNIT_TEST("parser", "parse_expression()", "struct member access -- whitesp
 		" xxx"
 	);
 }
+
+
+//////////////////////////////////			UPDATE
+
+
+#if 0
+QUARK_UNIT_TEST("parser", "parse_expression()", "update struct member", ""){
+	ut_verify__parse_expression(QUARK_POS, "update(a, red, 10) xxx", R"___(["corecall", "$update", [["@", "a"], ["@", "red"], ["k", 10, "^int"]]])___", " xxx");
+}
+QUARK_UNIT_TEST("parser", "parse_expression()", "update dict member", ""){
+	ut_verify__parse_expression(QUARK_POS, "update(a, \"name\", 10) xxx", R"___(["corecall", "$update", [["@", "a"], ["k", "name", "^string"], ["k", 10, "^int"]]])___", " xxx");
+}
+#endif
+
 
 
 //////////////////////////////////			LOOKUP

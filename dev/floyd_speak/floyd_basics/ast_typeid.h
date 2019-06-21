@@ -84,6 +84,9 @@ int get_json_type(const json_t& value);
 //////////////////////////////////////////////////		struct_definition_t
 
 
+//??? This struct should be *separate* from the actual struct_definition_t,
+//	which should go next to function_definition_t in expression.h
+
 struct struct_definition_t {
 	public: struct_definition_t(const std::vector<member_t>& members) :
 		_members(members)
@@ -106,16 +109,6 @@ std::string to_compact_string(const struct_definition_t& v);
 int find_struct_member_index(const struct_definition_t& def, const std::string& name);
 
 
-
-
-//////////////////////////////////////////////////		itype_t
-
-
-struct itype_t {
-	itype_t(int32_t itype) : itype(itype){}
-
-	int32_t itype;
-};
 
 
 

@@ -12,10 +12,13 @@
 
 #include <string>
 #include "ast_typeid.h"
+#include "compiler_basics.h"
 
 struct json_t;
 
 namespace floyd {
+
+struct value_t;
 
 
 //////////////////////////////////////		runtime_handler_i
@@ -53,6 +56,72 @@ typeid_t make_process_init_type(const typeid_t& t);
 
 //	T x(T state, json_value message) impure
 typeid_t make_process_message_handler_type(const typeid_t& t);
+
+
+
+
+
+value_t unflatten_json_to_specific_type(const json_t& v, const typeid_t& target_type);
+
+
+
+
+//////////////////////////////////////		libfunc_signature_t
+
+
+
+struct libfunc_signature_t {
+	std::string name;
+	function_id_t _function_id;
+	floyd::typeid_t _function_type;
+};
+
+
+//////////////////////////////////////		CORE CALLS
+
+
+
+
+struct corecall_signature_t {
+	std::string name;
+	function_id_t _function_id;
+	floyd::typeid_t _function_type;
+};
+std::string get_opcode(const corecall_signature_t& signature);
+
+corecall_signature_t make_assert_signature();
+corecall_signature_t make_to_string_signature();
+corecall_signature_t make_to_pretty_string_signature();
+
+corecall_signature_t make_typeof_signature();
+
+corecall_signature_t make_update_signature();
+corecall_signature_t make_size_signature();
+corecall_signature_t make_find_signature();
+corecall_signature_t make_exists_signature();
+corecall_signature_t make_erase_signature();
+corecall_signature_t make_push_back_signature();
+corecall_signature_t make_subset_signature();
+corecall_signature_t make_replace_signature();
+
+corecall_signature_t make_script_to_jsonvalue_signature();
+corecall_signature_t make_jsonvalue_to_script_signature();
+corecall_signature_t make_value_to_jsonvalue_signature();
+corecall_signature_t make_jsonvalue_to_value_signature();
+
+corecall_signature_t make_get_json_type_signature();
+
+corecall_signature_t make_map_signature();
+corecall_signature_t make_map_string_signature();
+corecall_signature_t make_filter_signature();
+corecall_signature_t make_reduce_signature();
+corecall_signature_t make_supermap_signature();
+
+corecall_signature_t make_print_signature();
+corecall_signature_t make_send_signature();
+
+std::vector<corecall_signature_t> get_corecall_signatures();
+
 
 
 }	//	floyd

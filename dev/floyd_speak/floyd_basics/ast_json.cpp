@@ -95,6 +95,9 @@ json_t maker__make_conditional_operator(const json_t& e1, const json_t& e2, cons
 json_t maker__call(const json_t& f, const std::vector<json_t>& args){
 	return make_expression2(floyd::k_no_location, expression_opcode_t::k_call, f, json_t::make_array(args));
 }
+json_t maker__corecall(const std::string& name, const std::vector<json_t>& args){
+	return make_expression2(floyd::k_no_location, expression_opcode_t::k_corecall, name, json_t::make_array(args));
+}
 
 json_t maker_vector_definition(const std::string& element_type, const std::vector<json_t>& elements){
 	QUARK_ASSERT(element_type == "");

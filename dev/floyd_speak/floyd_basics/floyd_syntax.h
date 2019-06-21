@@ -277,6 +277,8 @@ enum class expression_type {
 	//	c99: a(b, c)		token: "call"
 	k_call,
 
+	k_corecall,
+
 	//	c99: a				token: "@"
 	k_load,
 
@@ -285,6 +287,9 @@ enum class expression_type {
 
 	//	c99: a.b			token: "->"
 	k_resolve_member,
+
+	//						token: "<-"
+	k_update_member,
 
 	//	c99: a[b]			token: "[]"
 	k_lookup_element,
@@ -342,6 +347,10 @@ inline bool is_simple_expression__2(const std::string& op){
 
 //	Keywords in source code.
 namespace keyword_t {
+	const std::string k_update = "update";
+	const std::string k_push_back = "push_back";
+	const std::string k_size = "size";
+
 	const std::string k_return = "return";
 	const std::string k_while = "while";
 	const std::string k_for = "for";

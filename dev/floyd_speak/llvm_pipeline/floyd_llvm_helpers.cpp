@@ -40,7 +40,7 @@
 #include <vector>
 #include <iostream>
 
-#include "host_functions.h"
+#include "bytecode_host_functions.h"
 #include "compiler_basics.h"
 #include "compiler_helpers.h"
 #include "floyd_parser.h"
@@ -475,14 +475,6 @@ runtime_type_t lookup_runtime_type(const type_interner_t& interner, const typeid
 
 
 
-void NOT_IMPLEMENTED_YET() {
-	throw std::exception();
-}
-
-void UNSUPPORTED() {
-	QUARK_ASSERT(false);
-	throw std::exception();
-}
 
 
 

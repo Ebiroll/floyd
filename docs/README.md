@@ -5,19 +5,18 @@
 
 
 # TL;DR
-**WHAT:** General-purpose programming language with unique take on execution performance and and programming.
+**WHAT:** General-purpose programming language with a unique take on programming and performance.
 
 **LICENCE:** MIT
  
 **STATUS:** Alpha 2. All the basics of the language are finished and robust. Runs natively using LLVM JIT backend (passes all tests, but not optimised). A byte code interpreter is also available. Production ready for smaller programs.
 
-**IN THE REPO:** This Github repository holds the compiler, the bytecode interpreter and documentation.
+**THIS REPO:** This Github repository holds the compiler, the bytecode interpreter and documentation.
 
 **2019:** 1) first generation of Injector (optimiser), 2) Flesh out language, approx 15% more features.
 
-**ROADMAP:** [ROADMAP](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap")
+[**[FLOYD BLOG]**](https://medium.com/floyd-programming-language "Floyd Blog") - [**[ROADMAP]**](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap") - [**[CURRENT MILESTONE]**](https://github.com/marcusz/floyd/projects/4 "Milestone") - [**[MANUAL]**](floyd_manual/floyd_manual.md "Manual") - [**[LIBRARY]**](floyd_manual/floyd_speak_corelibs.md "Core library")
 
-**CURRENT MILESTONE:** [CURRENT MILESTONE](https://github.com/marcusz/floyd/projects/4 "Milestone 2")
 
 
 # WHAT IS FLOYD?

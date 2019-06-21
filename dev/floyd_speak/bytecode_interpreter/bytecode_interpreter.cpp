@@ -8,7 +8,7 @@
 
 #include "bytecode_interpreter.h"
 
-#include "host_functions.h"
+#include "bytecode_host_functions.h"
 #include "text_parser.h"
 #include "ast_value.h"
 #include "ast_json.h"
@@ -1211,7 +1211,7 @@ bc_value_t update_element(interpreter_t& vm, const bc_value_t& obj1, const bc_va
 		}
 	}
 	else {
-		quark::throw_runtime_error("Can only update string, vector, dict or struct.");
+		UNSUPPORTED();
 	}
 }
 
@@ -2261,17 +2261,16 @@ interpreter_t::interpreter_t(const bc_program_t& program, runtime_handler_i* han
 {
 	QUARK_ASSERT(program.check_invariant());
 
-	//	Make lookup table from host-function ID to an implementation of that host function in the interpreter.
-	const auto& host_functions = get_host_functions();
-	std::map<int, HOST_FUNCTION_PTR> host_functions2;
-	for(auto& hf_kv: host_functions){
-		const auto& function_id = hf_kv.second._signature._function_id;
-		const auto& function_ptr = hf_kv.second._f;
-		host_functions2.insert({ function_id, function_ptr });
-	}
-
 	const auto start_time = std::chrono::high_resolution_clock::now();
-	_imm = std::make_shared<interpreter_imm_t>(interpreter_imm_t{start_time, program, host_functions2});
+
+
+	const auto corecalls = bc_get_corecalls();
+	const auto filelib_calls = bc_get_filelib_calls();
+	auto host_functions = corecalls;
+	host_functions.insert(filelib_calls.begin(), filelib_calls.end());
+
+
+	_imm = std::make_shared<interpreter_imm_t>(interpreter_imm_t{start_time, program, host_functions });
 
 	interpreter_stack_t temp(&_imm->_program._globals);
 	temp.swap(_stack);
@@ -3060,6 +3059,7 @@ std::pair<bc_typeid_t, bc_value_t> execute_instructions(interpreter_t& vm, const
 
 			if(function_def._host_function_id != 0){
 				const auto& host_function = vm._imm->_host_functions.at(function_def._host_function_id);
+				QUARK_ASSERT(host_function != nullptr);
 
 				const int arg0_stack_pos = stack.size() - (function_def_dynamic_arg_count + callee_arg_count);
 				int stack_pos = arg0_stack_pos;
