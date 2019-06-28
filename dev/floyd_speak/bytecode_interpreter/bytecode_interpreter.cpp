@@ -938,7 +938,9 @@ QUARK_UNIT_TEST("", "", "", ""){
 	QUARK_ASSERT(value_object_size >= 8);
 
 	const auto bcvalue_size = sizeof(bc_value_t);
+#ifdef __APPLE__
 	QUARK_ASSERT(bcvalue_size == 72);
+#endif
 
 	struct mockup_value_t {
 		private: bool _is_ext;

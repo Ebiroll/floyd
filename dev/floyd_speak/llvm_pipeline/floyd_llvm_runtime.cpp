@@ -2972,18 +2972,24 @@ QUARK_UNIT_TEST("", "From source: Check that floyd_runtime_init() runs and sets 
 
 	floyd::llvm_instance_t instance;
 	auto program = generate_llvm_ir_program(instance, pass3, "myfile.floyd");
+
+#ifdef __APPLE__
 	auto ee = make_engine_run_init(instance, *program);
 
-	const auto result = *static_cast<uint64_t*>(floyd::get_global_ptr(ee, "result"));
+	const auto tmp_ptr=floyd::get_global_ptr(ee, "result");
+	const auto result = *static_cast<uint64_t*>(tmp_ptr);
 	QUARK_ASSERT(result == 6);
 
 	call_floyd_runtime_deinit(ee);
+#endif	
 
 //	QUARK_TRACE_SS("result = " << floyd::print_program(*program));
 }
 
 //	BROKEN!
 QUARK_UNIT_TEST("", "From JSON: Simple function call, call print() from floyd_runtime_init()", "", ""){
+#ifdef __APPLE__
+
 	const auto cu = floyd::make_compilation_unit_nolib("print(5)", "myfile.floyd");
 	const auto pass3 = compile_to_sematic_ast__errors(cu);
 
@@ -2992,6 +2998,7 @@ QUARK_UNIT_TEST("", "From JSON: Simple function call, call print() from floyd_ru
 	auto ee = make_engine_run_init(instance, *program);
 	QUARK_ASSERT(ee._print_output == std::vector<std::string>{"5"});
 	call_floyd_runtime_deinit(ee);
+#endif
 }
 
 

@@ -782,7 +782,12 @@ VEC_T* wide_return_to_vec(const WIDE_RETURN_T& ret){
 
 QUARK_UNIT_TEST("", "", "", ""){
 	const auto size = sizeof(STDMAP);
+	//printf("MAP size=%d\n",size);
+#ifdef __APPLE__
 	QUARK_ASSERT(size == 24);
+#else 
+	QUARK_ASSERT(size == 48);
+#endif
 }
 
 bool DICT_T::check_invariant() const{
@@ -848,7 +853,11 @@ DICT_T* wide_return_to_dict(const WIDE_RETURN_T& ret){
 
 QUARK_UNIT_TEST("", "", "", ""){
 	const auto size = sizeof(STDMAP);
+#ifdef __APPLE__
 	QUARK_ASSERT(size == 24);
+#else 
+	QUARK_ASSERT(size == 48);
+#endif
 }
 
 bool JSON_T::check_invariant() const{
