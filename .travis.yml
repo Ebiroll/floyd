@@ -6,13 +6,14 @@ before_install:
   # C++17
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
   - sudo apt-get update -qq
+  - sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
 
 install: 
   # C++17
-  - sudo apt-get install -qq g++-8 cmake llvm
+  - sudo apt-get install -qq g++-8 cmake llvm-8
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
 
 script:
   - llvm-config --cxxflags --ldflags --system-libs --libs engine interpreter
-  - cmake -D FORCE_LLVM_LIB="-L/usr/local/clang-7.0.0/lib -lLLVMInterpreter -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMCodeGen -lLLVMScalarOpts -lLLVMInstCombine -lLLVMAggressiveInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMX86Desc -lLLVMMCDisassembler -lLLVMX86Info -lLLVMX86AsmPrinter -lLLVMX86Utils -lLLVMMCJIT -lLLVMExecutionEngine -lLLVMTarget -lLLVMAnalysis -lLLVMProfileData -lLLVMRuntimeDyld -lLLVMObject -lLLVMMCParser -lLLVMBitReader -lLLVMMC -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF -lLLVMCore -lLLVMBinaryFormat -lLLVMSupport -lLLVMDemangle" dev/floyd_speak 
+  - cmake dev/floyd_speak 
   - cmake --build . 
