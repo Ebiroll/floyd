@@ -16,11 +16,12 @@ install:
   - sudo apt-get install -qq --allow-unauthenticated  g++-8 cmake llvm-8-dev
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
   - dpkg-query -L llvm-8
-  #- sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-8 90
+  - sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-8 90
 
 
 
 script:
   - llvm-config --cxxflags --ldflags --system-libs --libs engine interpreter
+  - llvm-config-8 --cxxflags --ldflags --system-libs --libs engine interpreter
   - cmake dev/floyd_speak 
   - cmake --build . 
