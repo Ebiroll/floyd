@@ -144,11 +144,10 @@ struct node
             : sizeof_packed_inner_n(count);
     }
 
-    constexpr static std::size_t max_sizeof_leaf  =
-        sizeof_packed_leaf_n(branches<BL>);
+  constexpr static std::size_t max_sizeof_leaf =  1024;//sizeof_packed_leaf_n(branches<BL>);
 
-    constexpr static std::size_t max_sizeof_inner =
-        sizeof_packed_inner_n(branches<B>);
+  constexpr static std::size_t max_sizeof_inner = 1024;
+  //        sizeof_packed_inner_n(branches<B>);
 
     constexpr static std::size_t max_sizeof_relaxed =
         sizeof_packed_relaxed_n(branches<B>);
@@ -940,14 +939,14 @@ constexpr bits_t derive_bits_leaf_aux()
 {
     using node_t = node<T, MP, B, B>;
     constexpr auto sizeof_elem = sizeof(T);
-    constexpr auto space = node_t::max_sizeof_inner - node_t::sizeof_packed_leaf_n(0);
+    constexpr auto space = 64; //node_t::max_sizeof_inner - node_t::sizeof_packed_leaf_n(0);
     constexpr auto full_elems = space / sizeof_elem;
     constexpr auto BL = log2(full_elems);
     return BL;
 }
 
-template <typename T, typename MP, bits_t B>
-constexpr bits_t derive_bits_leaf = derive_bits_leaf_aux<T, MP, B>();
+  template <typename T, typename MP, bits_t B>
+  constexpr bits_t derive_bits_leaf = derive_bits_leaf_aux<T, MP, B>();
 
 } // namespace rbts
 } // namespace detail
