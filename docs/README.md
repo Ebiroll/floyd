@@ -1,7 +1,8 @@
 ![](floyd_logo_banner.png)
 
-
 **PLEASE PLAY AROUND WITH FLOYD**
+Online playground for earlier version of floyd
+    https://ebiroll.github.io/floyd/floyd.html
 
 
 # TL;DR
