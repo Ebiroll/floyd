@@ -3044,7 +3044,6 @@ QUARK_UNIT_TEST("", "From source: Check that floyd_runtime_init() runs and sets 
 //	BROKEN!
 QUARK_UNIT_TEST("", "From JSON: Simple function call, call print() from floyd_runtime_init()", "", ""){
 #ifdef __APPLE__
-
 	const auto cu = floyd::make_compilation_unit_nolib("print(5)", "myfile.floyd");
 	const auto pass3 = compile_to_sematic_ast__errors(cu);
 
@@ -3052,6 +3051,7 @@ QUARK_UNIT_TEST("", "From JSON: Simple function call, call print() from floyd_ru
 	auto program = generate_llvm_ir_program(instance, pass3, "myfile.floyd");
 	auto ee = init_program(*program);
 	QUARK_ASSERT(ee->_print_output == std::vector<std::string>{"5"});
+#endif
 }
 
 
