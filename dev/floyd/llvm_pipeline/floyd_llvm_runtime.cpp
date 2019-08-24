@@ -3213,7 +3213,6 @@ QUARK_UNIT_TEST("", "From source: Check that floyd_runtime_init() runs and sets 
 
 	const auto result = *static_cast<uint64_t*>(floyd::get_global_ptr(*ee, "result"));
 	QUARK_ASSERT(result == 6);
-#endif	
 
 //	QUARK_TRACE_SS("result = " << floyd::print_program(*program));
 }
