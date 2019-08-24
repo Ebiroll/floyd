@@ -4,6 +4,8 @@
 Online playground for earlier version of floyd
     https://ebiroll.github.io/floyd/floyd.html
 
+[![CircleCI](https://circleci.com/gh/Ebiroll/floyd/tree/master.svg?style=svg)](https://circleci.com/gh/Ebiroll/floyd/tree/master)
+
 
 # TL;DR
 **WHAT:** General-purpose programming language with a unique take on programming and performance.
@@ -16,7 +18,7 @@ Online playground for earlier version of floyd
 
 **2019:** 1) first generation of Injector (optimiser), 2) Flesh out language, approx 15% more features.
 
-[**[FLOYD BLOG]**](https://medium.com/floyd-programming-language "Floyd Blog") - [**[ROADMAP]**](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap") - [**[CURRENT MILESTONE]**](https://github.com/marcusz/floyd/projects/4 "Milestone") - [**[MANUAL]**](floyd_manual/floyd_manual.md "Manual") - [**[LIBRARY]**](floyd_manual/floyd_speak_corelibs.md "Core library")
+[**[FLOYD BLOG]**](https://medium.com/floyd-programming-language "Floyd Blog") - [**[ROADMAP]**](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap") - [**[CURRENT MILESTONE]**](https://github.com/marcusz/floyd/projects/4 "Milestone") - [**[MANUAL]**](floyd_manual/floyd_manual.md "Manual")
 
 
 
@@ -116,7 +118,7 @@ There is no compiled distribution of Floyd yet. You need to clone the github rep
 
 3. In your terminal, run "brew install llvm@8.0.0" -- this installs the LLVM library on your Mac. It's installed in "/usr/local/Cellar/llvm/8.0.0_1" - so it won't conflict with Xcode or other versions of LLVM.
 
-4. Open the Floyd xcode project: Floyd/dev/floyd_speak.xcodeproj
+4. Open the Floyd xcode project: Floyd/dev/floyd.xcodeproj
 
 5. Make sure the current xcode scheme is "unit tests". Select from the top-left popup menu, looking like a stop-button.
 
@@ -124,18 +126,12 @@ There is no compiled distribution of Floyd yet. You need to clone the github rep
 
 	This builds the project and runs the unit tests. Output in the Xcode console.
 	
-#### UNIX
-
-Cmake is used to build floyd 
-
-
-
 
 ##### Building with arch linux
 
 1. Install llvm, sudo pacman -Sy llvm
 
-2. cd floyd/dev/floyd_speak
+2. cd floyd/dev/floyd
 
 3. mkdir build;cd build
 
@@ -143,7 +139,7 @@ Cmake is used to build floyd
 
 5. make
 
-##### Builing quicker with ninja
+##### Builing quicker with ninja.
  
  0. sudo pacman -Sy ninja
 
@@ -153,9 +149,94 @@ Cmake is used to build floyd
 
  5. ninja
 
+#### UNIX (ubuntu)
+
+1. Install llvm,  sudo apt-get install -qq  cmake llvm-8-dev
+
+2. cd floyd/dev/floyd
+
+3. mkdir build;cd build
+
+4. cmake ..
+
+5. make
+
+#### UNIX (generic)
+
+This procedure is not tested, but is a good starting point
+
+0. In a directory parrallell to where floyd, was checked out do 
+
+1.  git clone https://github.com/Microsoft/vcpkg
+
+2.  cd vcpkg
+
+2.  ./bootstrap-vcpkg.sh
+
+3.  ./vcpkg install llvm
+
+4. Modify CMakelists.txt to find llvm libaraies in ../vcpkg/packages
+
+5. cd floyd/dev/floyd; mkdir build; cd build ; cmake .. ; make
+
+
 #### WINDOWS
 
-TBD
+##### The easy way
+
+Enable the windows subsystem for linux on Windows 10, 
+https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux
+As admin in power shell, 
+```
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+```
+Install i.e. arch linux  
+
+https://github.com/yuk7/ArchWSL
+
+
+
+Then follow the instructions above.
+
+##### The hard way
+
+This describes how to compile for Visual Studio Code 2019 
+ 
+Note that it is also possible to install vcpkg to other location.
+Then you have to set the environment variable VCPKG_ROOT.
+Go to control panel -> system -> environment variables
+NOTE that the path have to be short to make i.e. QT Happy, i.e. D:\vcpkg
+This also works, Windows+R
+    rundll32.exe sysdm.cpl,EditEnvironmentVariables
+
+If you do not set this the CMAkeLists.txt expects vcpkg in a parallell directory
+    set (VCPKG_ROOT "${CMAKE_SOURCE_DIR}/../../../vcpkg/")
+
+It is also possible to open CMakefiles directly within visual studio,
+https://docs.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=vs-2019
+Currently the code does not compile correctly.
+
+0. In a directory parrallell to where floyd, was checked out do 
+
+1.  git clone https://github.com/Microsoft/vcpkg
+
+2.  cd vcpkg
+
+2.  ./bootstrap-vcpkg.bat
+
+3.  ./vcpkg.exe install llvm:x64-windows
+    ./vcpkg.exe install readline:x64-windows
+    ./vcpkg.exe install pthreads:x64-windows
+    ./vcpkg.exe install dirent:x64-windows
+Note that building llvm takes a very long time to build > 4 hours on a slower machine
+ 
+4. Run cmake from cmake.org put the build files in a dir in a directory parallell to the rest, it should look like this,    
+    > ls 
+	  floyd
+	  vcpkg
+	  build
+
+5. Compile 
 
 
 # STATUS
@@ -170,7 +251,6 @@ A handful features are needed for a satisfying 1.0: rounding out the language fe
 |Item				| Feature	
 |:---				|:---
 | [Floyd Manual](floyd_manual/floyd_manual.md) | Programming language manual
-| [Core Library Manual](floyd_manual/floyd_speak_corelibs.md) | File system access, JSON support, hashes, map() etc.
 | **Floyd compiler** | Compiles Floyd source code
 | **Floyd LLVM backend**	| Optimises your Floyd program and generates native code x86 / x64 code
 | **Floyd byte code compiler & interpreter**	| Runs your program in the byte code interpeter
@@ -182,6 +262,3 @@ A handful features are needed for a satisfying 1.0: rounding out the language fe
 [ROADMAP](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap")
 
 [CURRENT MILESTONE](https://github.com/marcusz/floyd/projects/4 "Milestone 2")
-
-
-**PLEASE PLAY AROUND WITH FLOYD**
