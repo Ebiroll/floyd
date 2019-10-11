@@ -19,7 +19,7 @@ ENDIF(MSVC)
 SET (CMAKE_BUILD_TYPE Debug)
 
 
-#include_directories(parts /usr/lib/llvm-8/include commandline_tool  /usr/include benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+#include_directories(parts /usr/lib/llvm-8/includecommandline_tool  /usr/include benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 #find_library(
 #  LLVM_LIB
@@ -29,7 +29,7 @@ SET (CMAKE_BUILD_TYPE Debug)
 
 
 
-include_directories(../llvm-project/llvm/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+include_directories(../llvm-project/llvm/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 if (MSVC)  # - Microsoft Visual C++
 set (PROJECTNAME_ARCHITECTURE "x64")
