@@ -23,5 +23,5 @@ install:
 script:
   - llvm-config --cxxflags --ldflags --system-libs --libs engine interpreter
   - llvm-config-8 --cxxflags --ldflags --system-libs --libs engine interpreter
-  - cmake dev/floyd 
+  - cmake compiler 
   - cmake --build . 

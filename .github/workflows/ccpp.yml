@@ -9,9 +9,13 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-    - name: install-dev
-      run: sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
+    - name: install-gcc8
+      run: sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+      run: sudo apt-get install -qq --allow-unauthenticated  g++-8 cmake llvm-8-dev libedit-dev
+      run: sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
+      run: dpkg-query -L llvm-8
     - name: install-llvm
+      run: sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
       run: sudo apt-get install -qq --allow-unauthenticated cmake llvm-8-dev libedit-dev
     - name: configure
       run: cmake compiler
