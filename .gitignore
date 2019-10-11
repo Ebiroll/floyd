@@ -8,3 +8,8 @@ xcuserdata/
 
 *.xcuserstate
 *.xcbkptlist
+
+dev/floyd_speak/*
+build
+dev/floyd/build/*
+dev/floyd/nbuild/*
