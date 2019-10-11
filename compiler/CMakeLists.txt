@@ -29,7 +29,7 @@ SET (CMAKE_BUILD_TYPE Debug)
 
 
 
-include_directories(../llvm-project/llvm/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+include_directories(../llvm-project/llvm/include /usr/local/Cellar/llvm@8/8.0.1/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 if (MSVC)  # - Microsoft Visual C++
 set (PROJECTNAME_ARCHITECTURE "x64")
@@ -337,7 +337,7 @@ target_include_directories( floyd
 )
 
 
-IF(MSVC)   
+if(MSVC)   
 
   link_directories("${CMAKE_SOURCE_DIR}/../../../vcpkg/installed/x64-windows/debug/lib/")
   #find_library(READLINE_LIBRARY readline)
@@ -346,7 +346,13 @@ IF(MSVC)
   ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
   ${FLOYD_SPEAK_DEPENDENCIES} ${CMAKE_THREAD_LIBS_INIT} Threads::Threads  LLVMMC LLVMLTO Shlwapi)
   # ${CMAKE_SOURCE_DIR}/../../../vcpkg/installed/x64-windows/debug/lib/readline.lib
-ELSE()
+elseif(APPLE)
+target_link_options(floyd  PRIVATE "-L/usr/local/opt/llvm@8/lib -Wl,-rpath,/usr/local/opt/llvm@8/lib")
+target_link_libraries( floyd
+${FLOYD_SPEAK_STATIC_DEPENDENCIES}
+${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM-8 ${LLVM_LIB} readline)
+
+else()
 target_link_libraries( floyd
 ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
 ${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM-8 ${LLVM_LIB} readline)
