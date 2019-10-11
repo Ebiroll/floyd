@@ -49,6 +49,7 @@ jobs:
       run: |
         brew install llvm@8
         brew install cmake
+        mkdir -p /usr/local/Cellar/llvm/ && ln -s /usr/local/opt/llvm@8 /usr/local/Cellar/llvm/8.0.1
     - name: Creating Application
       run: xcodebuild -scheme distributable build
     - name: floyd Hwcaps
