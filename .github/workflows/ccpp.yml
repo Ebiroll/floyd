@@ -21,8 +21,8 @@ jobs:
         sudo apt-get install -qq --allow-unauthenticated cmake llvm-8-dev libedit-dev
     - name: configure
       run: |
-      sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
-      cmake compiler
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
+        cmake compiler
     - name: make
       run: cmake --build . 
     
