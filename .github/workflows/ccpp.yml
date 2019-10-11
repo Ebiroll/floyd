@@ -9,8 +9,11 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: install-dev
+       run sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
+       run sudo apt-get install -qq --allow-unauthenticated cmake llvm-8-dev libedit-dev
     - name: configure
-      run: cmake dev/floyd
+      run: cmake compiler
     - name: make
       run: cmake --build . 
     
