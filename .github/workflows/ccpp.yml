@@ -35,8 +35,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Brew install
       run: |
-      brew install llvm@8
-      brew install cmake
+        brew install llvm@8
+        brew install cmake
     - name: configure
       run: cmake compiler
     - name: make
