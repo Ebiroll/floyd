@@ -48,7 +48,7 @@ Building TOC and links using Sublime Text 3, Markdowntoc and Markdown preview
 - [2 FLOYD LANGUAGE REFERENCE MANUAL](#2-floyd-language-reference-manual)
 	- [2.1 SOURCE CODE FILES](#21-source-code-files)
 	- [2.2 MAIN\(\) & EXECUTING PROGRAMS](#22-main--executing-programs)
-	- [2.3 CORECALLS - AKA INTRINSICS, OPERATORS](#23-corecalls---aka-intrinsics-operators)
+	- [2.3 COMPILER INTRINSICS](#23-compiler-intrinsics)
 	- [2.4 DATA TYPES](#24-data-types)
 		- [EXAMPLE TYPE DECLARATIONS](#example-type-declarations)
 		- [BOOL](#bool)
@@ -159,20 +159,46 @@ Floyd generates native machine code but also comes with a bytecode interpreter.
 <a id="13-command-line-tool"></a>
 ## 1.3 COMMAND LINE TOOL
 
-|COMMAND		  	| MEANING
-|:---				|:---	
-| floyd help								| Show built in help for command line tool
-| floyd run mygame.floyd [arg1 arg2]		| compile and run the floyd program "mygame.floyd" using native exection
-| floyd run -t mygame.floyd					| -t turns on tracing, which shows compilation steps
-| floyd compile mygame.floyd				| compile the floyd program "mygame.floyd" to an AST, in JSON format
-| floyd bench mygame.floyd					| Runs all benchmarks, as defined by benchmark-def statements in Floyd program
-| floyd bench mygame.floyd rle game_loop	| Runs specified benchmarks "rle" and "game_loop"
-| floyd bench -l mygame.floyd				| Returns list of benchmarks
-| floyd hwcaps								| Outputs hardware capabilities
-| floyd benchmark_internal					| Runs Floyd built in suite of benchmark tests and prints the results
-| floyd runtests							| Runs Floyd built internal unit tests
-| Flag t									| Verbose tracing
-| Flag b									| Use Floyd's bytecode backend (compiler, bytecode ISA and interpreter) rather than the default, LLVM
+Usage:
+
+||COMMAND		  	| MEANING
+|:---|:---				|:---	
+|help     | floyd help                         | Show built in help for command line tool
+|run      | floyd run game.floyd [arg1 arg2]   | compile and run the floyd program "game.floyd" using native execution. arg1 and arg2 are inputs to your main()
+|run      | floyd run -t mygame.floyd          | -t turns on tracing, which shows compilation steps
+|compile  | floyd compile mygame.floyd         | compile the floyd program "mygame.floyd" to a native object file, output to stdout
+|compile  | floyd compile game.floyd myl.floyd | compile the floyd program "game.floyd" and "myl.floyd" to one native object file, output to stdout
+|compile  | floyd compile game.floyd -o test.o | compile the floyd program "game.floyd" to a native object file .o, called "test.o"
+|bench    | floyd bench mygame.floyd           | Runs all benchmarks, as defined by benchmark-def statements in Floyd program
+|bench    | floyd bench game.floyd rle game_lp | Runs specified benchmarks: "rle" and "game_lp"
+|bench    | floyd bench -l mygame.floyd        | Returns list of benchmarks
+|hwcaps   | floyd hwcaps                       | Outputs hardware capabilities
+|runtests | floyd runtests                     | Runs Floyd built internal unit tests
+
+Flags:
+
+|FLAG	| MEANING
+|:---	|:---	
+| -t       | Verbose tracing
+| -p       | Output parse tree as a JSON
+| -a       | Output Abstract syntax tree (AST) as a JSON
+| -i       | Output intermediate representation (IR / ASM) as assembly
+| -b       | Use Floyd's bytecode backend instead of default LLVM
+| -g       | Compiler with debug info, no optimizations
+| -O1      | Enable trivial optimizations
+| -O2      | Enable default optimizations
+| -O3      | Enable expensive optimizations
+| -l       | floyd bench returns a list of all benchmarks
+| -vcarray | Force vectors to use carray backend
+| -vhamt   | Force vectors to use HAMT backend (this is default)
+| -dcppmap | Force dictionaries to use c++ map as backend
+| -dhamt   | Force dictionaries to use HAMT backend (this is default)
+
+##### MORE EXAMPLES
+
+Compile "examples/fibonacci.floyd" to LLVM IR code, disable optimization, write to file "a.ir"
+
+>	floyd compile -i -g examples/fibonacci.floyd -o a.ir
 
 
 
@@ -1329,14 +1355,14 @@ func int main([string] args){
 ...will call your main() function with ["-a", "output.txt"] and your executable will return 42.
 
 
-<a id="23-corecalls---aka-intrinsics-operators"></a>
-## 2.3 CORECALLS - AKA INTRINSICS, OPERATORS
+<a id="23-compiler-intrinsics"></a>
+## 2.3 COMPILER INTRINSICS
 
 These functions are built into the language itself and are always available to your code. They are all pure unless except print() and send(). The have special code generation algorithms. Many of these functions are generic -- they work on many different types.
 
-**COMPLETE LIST OF CORECALLS:**
+**COMPLETE LIST OF INTRINSICS:**
 
-| CORECALLS: BASICS	  				| USE
+| INTRINSICS: BASICS	  			| USE
 |:---								|:---
 | print() -- IMPURE					| Prints a value to standard output
 | send() -- IMPURE 					| Posts a message to a process
@@ -1347,7 +1373,7 @@ These functions are built into the language itself and are always available to y
 | probe()							| TODO: Expose variable to test and performance tools
 | select()							| TODO: Called from a process function to read its inbox. It will block until a message is received or it times out
 
-| CORECALLS: FOR SOME TYPES ONLY  	| USE
+| INTRINSICS: FOR SOME TYPES ONLY  | USE
 |:---								|:---
 | update() 							| Replace an element in a vector, string, dictionary or struct
 | size()							| Returns number of elements in a collection or string
@@ -1366,7 +1392,7 @@ These functions are built into the language itself and are always available to y
 | get_json_type()					| Get which value sits in a json value. It can be one of the 8 types supported by JSON
 | generate_json_script()			| Convert json value to a JSON-compatible string
 | parse_json_script()				| Parse a JSON string and create a json-value
-| json to_json(any)							| Convert any Floyd value to a json-value
+| json to_json(any)					| Convert any Floyd value to a json-value
 | from_json()						| Convert a json-value to a specific Floyd type
 | bw_not()							| Bitwise not operation
 | bw_and()							| Bitwise and operation
@@ -1594,7 +1620,7 @@ Binary integer literals:
 
 #### BITWISE OPERATORS
 
-Notice that floyd has no special operator syntax for bitwise operations the way C has. Instead Floyd has explicitly named operators for these operations. This:
+Notice that floyd has no special operator syntax for bitwise operations the way C has. Instead Floyd has explicitly named intrinsics for these operations. This:
 
 1) allows us to have more and more specific operators, like several types of shift operations
 2) avoid accidentally mixing && with &.
@@ -1903,7 +1929,7 @@ Use [] to look up values using a key. It throws an exception is the key not foun
 | update() | DICTIONARY update(DICTIONARY s, string key, ELEMENT new_element) | Changes one element of the dictionary and returns a new dictionary
 | size() | int size(DICTIONARY s) | Returns the number of elements in the dictionary. Returns 0 if the dictionary is empty
 | exists() | bool exists(DICTIONARY s, string key) | Returns true if the key is found
-| erase() | DICTIONARY push_back(DICTIONARY s, string key) | Erases the value from the dictionary, returns a new dictionary
+| erase() | DICTIONARY erase(DICTIONARY s, string key) | Erases the value from the dictionary, returns a new dictionary
 | get_keys() | [ELEMENT] get_keys(DICTIONARY s) | Returns a vector with all the string keys of the dictionary. Order is undefined
 
 
@@ -2310,6 +2336,12 @@ The returned value is the measured time, in nanoseconds.
 
 Notice: compiler's dead-code elimination is NOT currently disabled correctly.
 
+The instructions will be run:
+- For maximum 10.000 times (runs)
+- For max 3 seconds
+- Minimum 2 times, no matter how long run takes. If your code takes 20 seconds, it will still be run twice.
+
+Notice: if you measure something very fast, the complete benchmark will run quickly too since it stops at 100.000 runs.
 
 
 <a id="example-expressions"></a>

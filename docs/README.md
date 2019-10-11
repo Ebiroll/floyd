@@ -4,7 +4,7 @@
 Online playground for earlier version of floyd
     https://ebiroll.github.io/floyd/floyd.html
 
-[![CircleCI](https://circleci.com/gh/Ebiroll/floyd/tree/master.svg?style=svg)](https://circleci.com/gh/Ebiroll/floyd/tree/master)
+[![CircleCI](https://circleci.com/gh/Ebiroll/floyd/tree/dev.svg?style=svg)](https://circleci.com/gh/Ebiroll/floyd/tree/dev)
 
 
 # TL;DR

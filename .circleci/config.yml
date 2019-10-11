@@ -15,18 +15,22 @@ jobs:
           command: 'pwd && ls'
       - run:
           name: Creating Build Files
-          command: 'cmake /root/project/dev/floyd/'
+          command: 'cmake /root/project/compiler/'
       - run:
            name: Creating Binary Files
            command: 'make'
+      - run:
+           name: floyd Hardware caps
+           command: './floyd hwcaps'
       #- run:
       #     name: floyd Unit Testing
       #     command: './floydut runtests'
 
+
   build-mac:
     macos:
        xcode: "10.3.0"
-    workDir: /Users/distiller/project/dev/ 
+    workDir: /Users/distiller/compiler/ 
     steps:
       - checkout
       - run:
@@ -43,17 +47,16 @@ jobs:
           command: 'brew install llvm@8'
       - run:
            name: List options
-           command: 'cd dev && xcodebuild -list -project floyd.xcodeproj && ln -s  /usr/local/Cellar/llvm/8.0.1 /usr/local/Cellar/llvm/8.0.0_1' 
+           command: 'xcodebuild -list -project floyd.xcodeproj && ln -s  /usr/local/Cellar/llvm/8.0.1 /usr/local/Cellar/llvm/8.0.0_1' 
       - run:
            name: Creating Application
-           command: 'cd dev && xcodebuild -scheme distributable build'
+           command: 'xcodebuild -scheme distributable build'
       - run:
-           name: floyd hwcaps
-           command: 'ls build && build/Release/floydut hwcaps'
-
+           name: floyd Hwcaps
+           command: 'ls /Users/distiller/Library/Developer/Xcode/DerivedData &&  cd  /Users/distiller/Library/Developer/Xcode/DerivedData/floyd-*/Build/Products/Release;./floyd hwcaps'
       #- run:
-      #     name: floyd Unit Testing
-      #     command: 'build/Release/floydut runtests'
+      #     name: floyd Unit test
+      #     command: 'ls /Users/distiller/Library/Developer/Xcode/DerivedData &&  cd  /Users/distiller/Library/Developer/Xcode/DerivedData/floyd-*/Build/Products/Release;./floyd runtests'
       #- run:
       #    name: Compress app  and result for storage
       #    command: zip -r floyd.zip build/Release/floyd.app
