@@ -50,7 +50,7 @@ jobs:
         brew install llvm@8
         brew install cmake
     - name: Creating Application
-        run: 'xcodebuild -scheme distributable build'
+        run: xcodebuild -scheme distributable build
     - name: floyd Hwcaps
-        run: 'ls /Users/distiller/Library/Developer/Xcode/DerivedData &&  cd  /Users/distiller/Library/Developer/Xcode/DerivedData/floyd-*/Build/Products/Release;./floyd hwcaps'
+        run: ls /Users/distiller/Library/Developer/Xcode/DerivedData &&  cd  /Users/distiller/Library/Developer/Xcode/DerivedData/floyd-*/Build/Products/Release;./floyd hwcaps
 
