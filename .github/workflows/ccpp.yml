@@ -16,13 +16,13 @@ jobs:
       run:  sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
     - name: apt-get
       run: |
-      sudo apt-get install -qq --allow-unauthenticated  g++-8 cmake llvm-8-dev libedit-dev
-      sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
-      dpkg-query -L llvm-8
+        sudo apt-get install -qq --allow-unauthenticated  g++-8 cmake llvm-8-dev libedit-dev
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
+        dpkg-query -L llvm-8
     - name: install-llvm
       run: |
-      sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
-      sudo apt-get install -qq --allow-unauthenticated cmake llvm-8-dev libedit-dev
+        sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
+        sudo apt-get install -qq --allow-unauthenticated cmake llvm-8-dev libedit-dev
     - name: configure
       run: cmake compiler
     - name: make
