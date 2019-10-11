@@ -186,6 +186,11 @@ set(FLOYD_SOURCES
 ${FLOYD_SOURCES}
 parts/hardware_caps_windows.cpp
 )
+elseif(APPLE)
+set(FLOYD_SOURCES
+${FLOYD_SOURCES}
+parts/hardware_caps_macos.cpp
+)
 else()
 set(FLOYD_SOURCES
 ${FLOYD_SOURCES}
