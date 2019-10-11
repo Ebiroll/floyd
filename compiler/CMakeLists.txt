@@ -155,8 +155,6 @@ llvm_pipeline/floyd_llvm_types.cpp
 parts/command_line_parser.cpp
 parts/file_handling.cpp
 parts/hardware_caps.cpp
-#parts/hardware_caps_macos.cpp
-parts/hardware_caps_linux.cpp
 parts/immutable_ref_value.cpp
 parts/json_support.cpp
 parts/os_process.cpp
