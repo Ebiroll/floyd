@@ -13,8 +13,8 @@ before_install:
 install: 
   # C++17
   - sudo apt-cache search  llvm-8
-  - sudo apt-get install -qq --allow-unauthenticated  g++-8 cmake llvm-8-dev libedit-dev
-  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 90
+  - sudo apt-get install -qq --allow-unauthenticated  g++-9 cmake llvm-8-dev libedit-dev
+  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
   - dpkg-query -L llvm-8
   #- sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-8 90
 
