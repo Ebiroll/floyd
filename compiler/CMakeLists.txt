@@ -6,6 +6,8 @@
 # cmake -DCMAKE_TOOLCHAIN_FILE=/usr/lib/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -G  "Unix Makefiles" ..
 # https://llvm.org/docs/CMake.html
 
+project( floyd_speak)
+
 cmake_minimum_required (VERSION 3.4)
 
 project(floyd_speak)
@@ -28,15 +30,17 @@ include_directories(parts /usr/lib/llvm-8/includecommandline_tool  /usr/include 
 #  HINTS C:\dev\floyd\llvm-project\llvm\build\Release\lib\cmake\llvm
 #)
 
-include(CMake/LLVM.cmake)
+include(cmake/LLVM.cmake)
 
+#include_directories(/usr/local/Cellar/llvm@8/8.0.1/include 
+#/usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 include_directories(../llvm-project/llvm/include ../llvm-project/llvm/build/include  /usr/local/Cellar/llvm@8/8.0.1/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 if (MSVC)  # - Microsoft Visual C++
 set (PROJECTNAME_ARCHITECTURE "x64")
 endif()
-message("WTF")
+#message("WTF")
 
 if (MSVC)  # - Microsoft Visual C++
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
@@ -101,10 +105,6 @@ bytecode_interpreter/bytecode_interpreter.cpp
 bytecode_interpreter/bytecode_intrinsics.cpp
 bytecode_interpreter/floyd_interpreter.cpp
 cpp_experiments.cpp
-#examples/benchmarks.floyd
-#examples/game_of_life.cpp
-#examples/process_test1.floyd
-#examples/test_main.floyd
 floyd_ast/ast.cpp
 floyd_ast/ast_visitor.cpp
 floyd_ast/expression.cpp
@@ -112,8 +112,7 @@ floyd_ast/statement.cpp
 floyd_basics/ast_value.cpp
 floyd_basics/compiler_basics.cpp
 floyd_basics/compiler_helpers.cpp
-floyd_basics/type_interner.cpp
-floyd_basics/typeid.cpp
+floyd_basics/types.cpp
 floyd_parser/floyd_parser.cpp
 floyd_parser/floyd_syntax.cpp
 floyd_parser/parse_expression.cpp
@@ -197,6 +196,11 @@ set(FLOYD_SOURCES
 ${FLOYD_SOURCES}
 parts/hardware_caps_macos.cpp
 )
+elseif(APPLE)
+set(FLOYD_SOURCES
+${FLOYD_SOURCES}
+parts/hardware_caps_macos.cpp
+)
 else()
 set(FLOYD_SOURCES
 ${FLOYD_SOURCES}
@@ -238,8 +242,8 @@ bytecode_interpreter/bytecode_interpreter.cpp
 bytecode_interpreter/bytecode_intrinsics.cpp
 bytecode_interpreter/floyd_interpreter.cpp
 cpp_experiments.cpp
-examples/process_test1.floyd
-examples/test_main.floyd
+#examples/process_test1.floyd
+#examples/test_main.floyd
 floyd_ast/ast.cpp
 floyd_ast/ast_visitor.cpp
 floyd_ast/expression.cpp
@@ -247,7 +251,6 @@ floyd_ast/statement.cpp
 floyd_basics/ast_value.cpp
 floyd_basics/compiler_basics.cpp
 floyd_basics/compiler_helpers.cpp
-floyd_basics/typeid.cpp
 floyd_parser/floyd_parser.cpp
 floyd_parser/floyd_syntax.cpp
 floyd_parser/parse_expression.cpp
@@ -454,7 +457,7 @@ elseif(APPLE)
 target_link_options(floyd  PRIVATE "-L/usr/local/opt/llvm@8/lib -Wl,-rpath,/usr/local/opt/llvm@8/lib")
 target_link_libraries( floyd
 ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
-${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM-8 ${LLVM_LIB} readline)
+${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM ${LLVM_LIB} readline)
 
 else()
 target_link_libraries( floyd

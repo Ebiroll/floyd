@@ -4,8 +4,6 @@
 Online playground for earlier version of floyd
     https://ebiroll.github.io/floyd/floyd.html
 
-[![CircleCI](https://circleci.com/gh/Ebiroll/floyd/tree/master.svg?style=svg)](https://circleci.com/gh/Ebiroll/floyd/tree/master)
-
 
 # TL;DR
 **WHAT:** General-purpose programming language with a unique take on programming and performance.
@@ -16,9 +14,9 @@ Online playground for earlier version of floyd
 
 **THIS REPO:** This Github repository holds the compiler, the bytecode interpreter and documentation.
 
-**2019:** 1) first generation of Injector (optimiser), 2) Flesh out language, approx 15% more features.
+**NEXT:** 1) first generation of Injector (optimiser), 2) Flesh out language, approx 15% more features, 3) Graphical tools
 
-[**[FLOYD BLOG]**](https://medium.com/floyd-programming-language "Floyd Blog") - [**[ROADMAP]**](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap") - [**[CURRENT MILESTONE]**](https://github.com/marcusz/floyd/projects/4 "Milestone") - [**[MANUAL]**](floyd_manual/floyd_manual.md "Manual")
+[**[FLOYD BLOG]**](https://medium.com/floyd-programming-language "Floyd Blog") - [**[MANUAL]**](floyd_manual/floyd_manual.md "Manual")
 
 
 
@@ -254,11 +252,3 @@ A handful features are needed for a satisfying 1.0: rounding out the language fe
 | **Floyd compiler** | Compiles Floyd source code
 | **Floyd LLVM backend**	| Optimises your Floyd program and generates native code x86 / x64 code
 | **Floyd byte code compiler & interpreter**	| Runs your program in the byte code interpeter
-
-
-
-# MOVING FORWARD
-
-[ROADMAP](https://github.com/marcusz/floyd/projects/1 "Floyd Roadmap")
-
-[CURRENT MILESTONE](https://github.com/marcusz/floyd/projects/4 "Milestone 2")
