@@ -91,8 +91,10 @@
 	#pragma warning(default:4716)
 
 	// SB: needed to ignore warnings for unchecked vectors and deprecated functions such as strcpy()
+#ifndef _CRT_SECURE_NO_WARNINGS
 	#define _CRT_SECURE_NO_WARNINGS
 	#define _SCL_SECURE_NO_WARNINGS
+#endif
 #elif QUARK_LINUX
 #endif
 
@@ -104,13 +106,13 @@ namespace quark {
 ////////////////////////////////	EXCEPTIONS
 
 
-void throw_exception() QUARK_NO_RETURN;
+QUARK_NO_RETURN void throw_exception();
 inline void throw_exception(){ throw std::exception(); }
 
-void throw_runtime_error(const std::string& s) QUARK_NO_RETURN;
+QUARK_NO_RETURN void throw_runtime_error(const std::string& s);
 inline void throw_runtime_error(const std::string& s) { throw std::runtime_error(s); }
 
-void throw_logic_error() QUARK_NO_RETURN;
+QUARK_NO_RETURN void throw_logic_error();
 inline void throw_logic_error(){ throw std::logic_error(""); }
 
 

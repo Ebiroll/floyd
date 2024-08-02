@@ -74,7 +74,7 @@ static const bool k_trace_after = false;
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/IRPrintingPasses.h"
+// #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
@@ -174,8 +174,9 @@ public:
 	void add(Pass *P) override {
 		// Wrap each pass with (-check)-debugify passes if requested, making
 		// exceptions for passes which shouldn't see -debugify instrumentation.
-		bool WrapWithDebugify = DebugifyEach && !P->getAsImmutablePass() &&
-														!isIRPrintingPass(P) && !isBitcodeWriterPass(P);
+		//bool WrapWithDebugify = DebugifyEach && !P->getAsImmutablePass() &&
+		//												!isIRPrintingPass(P) && !isBitcodeWriterPass(P);
+		bool WrapWithDebugify = false;
 		if (!WrapWithDebugify) {
 			super::add(P);
 			return;
@@ -308,7 +309,7 @@ static void AddStandardLinkPasses(legacy::PassManagerBase &PM) {
 namespace floyd {
 
 
-void optimize_module_mutating(llvm_instance_t& instance, std::unique_ptr<llvm::Module>& module, const compiler_settings_t& settings){
+extern "C" void optimize_module_mutating(llvm_instance_t& instance, std::unique_ptr<llvm::Module>& module, const compiler_settings_t& settings){
 	if(k_trace_before){
 		QUARK_TRACE(print_module(*module));
 	}
@@ -566,4 +567,11 @@ fpm->doFinalization();
 } // floyd
 
 
-
+// Link error
+// print - Print out the internal state of the pass.  This is called by Analyze
+// to print out the contents of an analysis.  Otherwise it is not necessary to
+// implement this method.
+void Pass::print(raw_ostream& OS, const Module*) const
+{
+	OS << "Pass::print not implemented for pass: '" << getPassName() << "'!\n";
+}

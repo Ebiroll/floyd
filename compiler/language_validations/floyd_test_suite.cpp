@@ -10,7 +10,9 @@
 
 #include "test_helpers.h"
 #include "floyd_corelib.h"
+#ifndef _WIN32
 #include "unistd.h"
+#endif
 
 using namespace floyd;
 

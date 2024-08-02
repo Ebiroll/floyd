@@ -19,7 +19,7 @@
 
 ////////////////////////////////		HELPERS
 
-
+#if 0
 
 
 __attribute__((noinline))
@@ -204,6 +204,8 @@ static void BM_read_vlq_vector2(benchmark::State& state) {
 }
 //BENCHMARK(BM_read_vlq_vector2)ARGS_XYZ;
 
+
+#endif
 
 #if 0
 static void BM_read_vlq_vector4(benchmark::State& state) {

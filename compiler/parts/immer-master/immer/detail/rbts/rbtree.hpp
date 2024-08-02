@@ -17,6 +17,7 @@
 #include <cassert>
 #include <memory>
 #include <numeric>
+#include <stdexcept>
 
 namespace immer {
 namespace detail {
@@ -373,7 +374,7 @@ struct rbtree
     const T& get_check(size_t index) const
     {
         if (index >= size)
-            throw std::out_of_range{"index out of range"};
+            throw std::out_of_range("index out of range");
         return descend(get_visitor<T>(), index);
     }
 

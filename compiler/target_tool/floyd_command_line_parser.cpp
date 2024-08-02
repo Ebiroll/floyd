@@ -360,10 +360,17 @@ command_t parse_floyd_command_line(const std::vector<std::string>& args){
 		std::cout << "\"" << e << "\"" << std::endl;
 	}
 #endif
+	for (const auto& e : args) {
+		std::cout << "\"" << e << "\"" << std::endl;
+	}
+
 
 	const auto command_line_args = parse_command_line_args_subcommand(args, k_flags);
 	const auto path_parts = SplitPath(command_line_args.command);
-	QUARK_ASSERT(path_parts.fName == "floyd" || path_parts.fName == "floydut");
+
+	std::cout << "name " << path_parts.fName << std::endl;
+
+	// WINDOWS TODO fix QUARK_ASSERT(path_parts.fName == "floyd" || path_parts.fName == ".\floyd.exe"	|| path_parts.fName == "floydut");
 	const bool trace_on = command_line_args.flags.find("t") != command_line_args.flags.end();
 	const bool bytecode_on = command_line_args.flags.find("b") != command_line_args.flags.end();
 	const ebackend backend = bytecode_on ? ebackend::bytecode : ebackend::llvm;

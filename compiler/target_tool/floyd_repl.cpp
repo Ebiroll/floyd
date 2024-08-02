@@ -7,7 +7,7 @@
 //
 
 #include "floyd_repl.h"
-
+#if 0
 
 #include <stdio.h>
 #include <iostream>
@@ -266,3 +266,5 @@ Type "help", "copyright", "credits" or "license" for more information.
 		}
 	}
 }
+
+#endif

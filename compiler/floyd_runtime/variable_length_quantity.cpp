@@ -125,6 +125,7 @@ std::vector<uint8_t> pack_vlq(uint32_t v){
 	else if(r < (1 << 24)){
 		return { uint8_t((c & 0xff) | 0x80), uint8_t((b & 0xff) | 0x80), uint8_t(a & 0xff) };
 	}
+	//  warning C4293: '<<': shift count negative or too big, undefined behavior
 	else if(r < (1L << 32)){
 		return { uint8_t((d & 0xff) | 0x80), uint8_t((c & 0xff) | 0x80), uint8_t((b & 0xff) | 0x80), uint8_t(a & 0xff) };
 	}

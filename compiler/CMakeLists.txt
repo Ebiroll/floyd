@@ -6,9 +6,10 @@
 # cmake -DCMAKE_TOOLCHAIN_FILE=/usr/lib/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -G  "Unix Makefiles" ..
 # https://llvm.org/docs/CMake.html
 
-project( floyd_speak)
-
 cmake_minimum_required (VERSION 3.4)
+
+project(floyd_speak)
+
 
 IF(MSVC)
     SET(CMAKE_CXX_FLAGS "/EHsc ")
@@ -19,17 +20,18 @@ ENDIF(MSVC)
 SET (CMAKE_BUILD_TYPE Debug)
 
 
-#include_directories(parts /usr/lib/llvm-8/includecommandline_tool  /usr/include benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+include_directories(parts /usr/lib/llvm-8/includecommandline_tool  /usr/include benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 #find_library(
 #  LLVM_LIB
 #  LLVM-8
-#  HINTS /usr/lib/llvm-8/lib
+#  HINTS C:\dev\floyd\llvm-project\llvm\build\Release\lib\cmake\llvm
 #)
 
+include(CMake/LLVM.cmake)
 
 
-include_directories(../llvm-project/llvm/include /usr/local/Cellar/llvm@8/8.0.1/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+include_directories(../llvm-project/llvm/include ../llvm-project/llvm/build/include  /usr/local/Cellar/llvm@8/8.0.1/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 if (MSVC)  # - Microsoft Visual C++
 set (PROJECTNAME_ARCHITECTURE "x64")
@@ -54,7 +56,7 @@ else()
 endif()
 
 find_package(Threads REQUIRED)
-find_package(LLVM  REQUIRED PATHS  "${CMAKE_SOURCE_DIR}/../../../vcpkg/packages/llvm_x64-windows/share/llvm/")
+#find_package(LLVM  REQUIRED PATHS  "${CMAKE_SOURCE_DIR}/../../../vcpkg/packages/llvm_x64-windows/share/llvm/" "C:/dev/floyd/llvm-project/llvm")
 #find_package(readline REQUIRED)
 
 
@@ -63,7 +65,12 @@ endif(MSVC)
 #message(" [INFO] VCPKG CMAKE_TOOLCHAIN_FILE = ${CMAKE_TOOLCHAIN_FILE}")
 #find_package(LLVM  REQUIRED) 
 
-# TODO, use find()
+# Simplle implementation
+include_directories(libs/getopts)
+include_directories(libs/pthread)
+include_directories(libs/dirent)
+
+# Proper vcpkg include directories
 include_directories(${VCPKG_ROOT}/packages/llvm_x64-windows/include)
 include_directories(${VCPKG_ROOT}/packages/readline-win32_x64-windows/include)
 include_directories(${VCPKG_ROOT}/packages/pthreads_x64-windows/include)
@@ -183,6 +190,7 @@ if (MSVC)  # - Microsoft Visual C++
 set(FLOYD_SOURCES
 ${FLOYD_SOURCES}
 parts/hardware_caps_windows.cpp
+libs/getopts/getopt.c
 )
 elseif(APPLE)
 set(FLOYD_SOURCES
@@ -339,15 +347,108 @@ target_include_directories( floyd
    PUBLIC
 )
 
+link_directories("${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib")
+
+#link_directories("C:/dev/floyd/llvm-project/llvm/build/Release/lib")
+
 
 if(MSVC)   
 
   link_directories("${CMAKE_SOURCE_DIR}/../../../vcpkg/installed/x64-windows/debug/lib/")
+
+  link_directories("${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib")
+
   #find_library(READLINE_LIBRARY readline)
+
+  #C:/dev/floyd/llvm-project/llvm/build/Release/lib
+  # C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMInterpreter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Disassembler.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86AsmParser.lib 
+  # C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86CodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMGlobalISel.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMSelectionDAG.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMCodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMScalarOpts.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMInstCombine.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAggressiveInstCombine.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMTransformUtils.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMBitWriter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Desc.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCDisassembler.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Info.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86AsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Utils.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCJIT.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMExecutionEngine.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMTarget.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAnalysis.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMProfileData.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMRuntimeDyld.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMObject.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMBitReader.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMC.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDebugInfoCodeView.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDebugInfoMSF.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMCore.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMBinaryFormat.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMSupport.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDemangle.lib
+  # C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMSymbolize.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDebugInfoPDB.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDebugInfoDWARF.lib 
+  #C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMXRay.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWebAssemblyDisassembler.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWebAssemblyCodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWebAssemblyDesc.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWebAssemblyAsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWebAssemblyAsmParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWebAssemblyInfo.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMDisassembler.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMCodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMAsmParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMDesc.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMInfo.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMAsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMARMUtils.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64Disassembler.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64CodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64AsmParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64Desc.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64Info.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64AsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAArch64Utils.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMWindowsManifest.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMCoroutines.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMIRParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMLineEditor.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Disassembler.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86AsmParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCJIT.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCA.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86CodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMGlobalISel.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Desc.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Info.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCDisassembler.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86AsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMX86Utils.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMSelectionDAG.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAsmPrinter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMFuzzMutate.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMTableGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMTextAPI.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMCoverage.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMOrcJIT.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDlltoolDriver.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMObjectYAML.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMOptRemarks.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMLTO.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMPasses.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMObjCARCOpts.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMipo.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMInstrumentation.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMVectorize.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMLinker.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMIRReader.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAsmParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMLibDriver.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMOption.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMInterpreter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMExecutionEngine.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMRuntimeDyld.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMCodeGen.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMTarget.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMScalarOpts.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMInstCombine.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAggressiveInstCombine.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMTransformUtils.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMBitWriter.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMAnalysis.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMProfileData.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMObject.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMCParser.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMMC.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDebugInfoCodeView.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDebugInfoMSF.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMBitReader.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMCore.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMBinaryFormat.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMSupport.lib C:\dev\floyd\llvm-project\llvm\build\Release\lib\LLVMDemangle.lib
+#
 
   target_link_libraries( floyd
   ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
-  ${FLOYD_SPEAK_DEPENDENCIES} ${CMAKE_THREAD_LIBS_INIT} Threads::Threads  LLVMMC LLVMLTO Shlwapi)
+  ${FLOYD_SPEAK_DEPENDENCIES} ${CMAKE_THREAD_LIBS_INIT} Threads::Threads 
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMInterpreter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86Disassembler.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86AsmParser.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMCodeGen.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMGlobalISel.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMSelectionDAG.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAsmPrinter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMScalarOpts.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMInstCombine.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAggressiveInstCombine.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMTransformUtils.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMBitWriter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86Desc.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86Codegen.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMMCDisassembler.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86Info.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86AsmPrinter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMX86Utils.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMMCJIT.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMExecutionEngine.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMTarget.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAnalysis.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMProfileData.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMRuntimeDyld.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMObject.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMMCParser.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMBitReader.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMMC.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMCore.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMBinaryFormat.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMSupport.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMDemangle.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64Utils.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64AsmPrinter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64CodeGen.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64Desc.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64Disassembler.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64Info.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64AsmParser.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAArch64Utils.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMWebAssemblyAsmParser.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMWebAssemblyAsmPrinter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMWebAssemblyCodeGen.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMWebAssemblyDesc.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMWebAssemblyDisassembler.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMWebAssemblyInfo.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMARMUtils.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMARMAsmPrinter.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMARMDesc.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMARMInfo.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMARMAsmParser.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMARMCodeGen.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMSymbolize.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMDebugInfoPDB.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMDebugInfoDWARF.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMDebugInfoCodeView.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMDebugInfoMSF.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMVectorize.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMTransformUtils.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMObjCARCOpts.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMipo.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMInstrumentation.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMInstCombine.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMLinker.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMCoroutines.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMCore.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMIRReader.lib
+  ${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib/LLVMAsmParser.lib
+  Shlwapi)
   # ${CMAKE_SOURCE_DIR}/../../../vcpkg/installed/x64-windows/debug/lib/readline.lib
 elseif(APPLE)
 target_link_options(floyd  PRIVATE "-L/usr/local/opt/llvm@8/lib -Wl,-rpath,/usr/local/opt/llvm@8/lib")
