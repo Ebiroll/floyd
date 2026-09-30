@@ -458,7 +458,8 @@ static const type_entry_t& touch_type(builder_t& builder, const type_t& type, co
 			builder.acc.type_entries[type_index] = entry;
 		}
 		void operator()(const function_t& e) const{
-			const auto llvm_type = make_function_type(builder, type)->getPointerTo();
+			const auto raw_function_type = make_function_type(builder, type);
+			const auto pointer_type = raw_function_type->getPointerTo();
 
 			std::shared_ptr<const llvm_function_def_t> optional_function_def;
 			if(peek2(builder.acc.types, type).is_function()){
@@ -466,10 +467,11 @@ static const type_entry_t& touch_type(builder_t& builder, const type_t& type, co
 				optional_function_def = std::make_shared<llvm_function_def_t>(function_def);
 			}
 
+			//	llvm_type_specific holds the raw FunctionType, llvm_type_generic holds the pointer-to-function used when passing/storing function values.
 			const auto entry = type_entry_t{
 				true,
-				llvm_type,
-				nullptr,
+				raw_function_type,
+				pointer_type,
 				optional_function_def
 			};
 			builder.acc.type_entries[type_index] = entry;
@@ -662,8 +664,9 @@ llvm::FunctionType* get_llvm_function_type(const llvm_type_lookup& type_lookup, 
 	QUARK_ASSERT(type_lookup.check_invariant());
 	QUARK_ASSERT(type.check_invariant());
 
-	auto t = get_llvm_type_as_arg(type_lookup, type);
-	return llvm::cast<llvm::FunctionType>(t);
+	//	llvm_type_specific holds the raw FunctionType for function types -- llvm_type_generic holds the pointer-to-function used elsewhere.
+	const auto& entry = type_lookup.find_from_type(type);
+	return llvm::cast<llvm::FunctionType>(entry.llvm_type_specific);
 }
 
 
