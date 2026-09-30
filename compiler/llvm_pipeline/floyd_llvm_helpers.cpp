@@ -73,7 +73,7 @@ target_t make_default_target(){
 	auto Features = "";
 
 	llvm::TargetOptions opt;
-	auto RM = std::optional<llvm::Reloc::Model>();
+	auto RM = floyd_optional<llvm::Reloc::Model>();
 	auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
 	//	Cannot copy DataLayout or put in shared_ptr.
