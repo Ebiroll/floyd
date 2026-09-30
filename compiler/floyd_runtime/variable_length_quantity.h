@@ -10,8 +10,11 @@
 #define variable_length_quantity_hpp
 
 #include <vector>
+#include <utility>
 #include <cstdint>
+#include <cstddef>
 #include <climits>
+#include <exception>
 inline std::pair<uint32_t, size_t> unpack_vlq(const uint8_t data[]);
 std::vector<uint8_t> pack_vlq(uint32_t v);
 

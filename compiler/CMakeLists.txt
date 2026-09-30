@@ -6,9 +6,7 @@
 # cmake -DCMAKE_TOOLCHAIN_FILE=/usr/lib/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -G  "Unix Makefiles" ..
 # https://llvm.org/docs/CMake.html
 
-project( floyd_speak)
-
-cmake_minimum_required (VERSION 3.4)
+cmake_minimum_required (VERSION 3.10)
 
 project(floyd_speak)
 

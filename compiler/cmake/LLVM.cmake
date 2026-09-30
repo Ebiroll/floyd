@@ -11,8 +11,13 @@ endif()
 
 # Find the installed LLVM package. Linux currently uses the LLVM version
 # provided by the host distribution instead of building LLVM from source.
+# FLOYD_LLVM_APT_VERSION lets Ubuntu builds pick between distro packages
+# such as llvm-15-dev and llvm-18-dev (defaults to 18).
 if(UNIX AND NOT APPLE)
-    find_package(LLVM CONFIG REQUIRED HINTS /usr/lib/llvm-18/lib/cmake/llvm)
+    if(NOT FLOYD_LLVM_APT_VERSION)
+        set(FLOYD_LLVM_APT_VERSION "18")
+    endif()
+    find_package(LLVM CONFIG REQUIRED HINTS /usr/lib/llvm-${FLOYD_LLVM_APT_VERSION}/lib/cmake/llvm)
 elseif(APPLE)
     find_package(LLVM CONFIG REQUIRED HINTS /usr/local/opt/llvm@18/lib/cmake/llvm /opt/homebrew/opt/llvm@18/lib/cmake/llvm)
 else()
@@ -36,6 +41,10 @@ add_definitions(
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+# Expose the found LLVM major version to C++ so code can #if FLOYD_LLVM_VERSION_MAJOR >= N
+# to handle API differences between supported LLVM releases (e.g. 15 vs 18).
+add_definitions(-DFLOYD_LLVM_VERSION_MAJOR=${LLVM_VERSION_MAJOR})
 
 # Split the definitions properly (https://weliveindetail.github.io/blog/post/2017/07/17/notes-setup.html)
 separate_arguments(LLVM_DEFINITIONS)
