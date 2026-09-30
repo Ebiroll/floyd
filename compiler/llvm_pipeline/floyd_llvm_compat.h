@@ -25,4 +25,18 @@
 	#include <llvm/MC/SubtargetFeature.h>
 #endif
 
+#include <llvm/Config/llvm-config.h>
+#include <llvm/Support/CodeGen.h>
+
+// LLVM <= 17 uses the CGFT_-prefixed enumerators, LLVM >= 18 dropped the prefix.
+#if LLVM_VERSION_MAJOR >= 18
+	inline constexpr auto floyd_CGFT_ObjectFile = llvm::CodeGenFileType::ObjectFile;
+	inline constexpr auto floyd_CGFT_AssemblyFile = llvm::CodeGenFileType::AssemblyFile;
+#else
+	inline constexpr auto floyd_CGFT_ObjectFile = llvm::CodeGenFileType::CGFT_ObjectFile;
+	inline constexpr auto floyd_CGFT_AssemblyFile = llvm::CodeGenFileType::CGFT_AssemblyFile;
+#endif
+
+#endif
+
 #endif

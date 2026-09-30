@@ -114,7 +114,7 @@ There is no compiled distribution of Floyd yet. You need to clone the github rep
 
 2. Install the Homebrew package manager, if you don't already have it. https://brew.sh/
 
-3. In your terminal, run "brew install llvm@8.0.0" -- this installs the LLVM library on your Mac. It's installed in "/usr/local/Cellar/llvm/8.0.0_1" - so it won't conflict with Xcode or other versions of LLVM.
+3. In your terminal, run "brew install llvm@18" -- this installs the LLVM library on your Mac. It's keg-only, installed under "$(brew --prefix llvm@18)" - so it won't conflict with Xcode or other versions of LLVM.
 
 4. Open the Floyd xcode project: Floyd/dev/floyd.xcodeproj
 
@@ -127,15 +127,15 @@ There is no compiled distribution of Floyd yet. You need to clone the github rep
 
 ##### Building with arch linux
 
-1. Install llvm, sudo pacman -Sy llvm
+1. Install llvm, sudo pacman -Sy llvm readline
 
-2. cd floyd/dev/floyd
+2. cd floyd
 
 3. mkdir build;cd build
 
-4. cmake ..
+4. cmake ../compiler
 
-5. make
+5. make -j 10
 
 ##### Builing quicker with ninja.
  
@@ -143,21 +143,27 @@ There is no compiled distribution of Floyd yet. You need to clone the github rep
 
  1-3. as above 
 
- 4. cmake .. -G Ninja
+ 4. cmake ../compiler -G Ninja
 
  5. ninja
 
 #### UNIX (ubuntu)
 
-1. Install llvm,  sudo apt-get install -qq  cmake llvm-18-dev
+1. Install llvm and readline, needed for the interactive REPL:
 
-2. cd floyd/dev/floyd
+    sudo apt-get install -qq cmake llvm-18-dev libedit-dev libreadline-dev
+
+   (llvm-15-dev also works, if that's what's available in your distro)
+
+2. cd floyd
 
 3. mkdir build;cd build
 
-4. cmake ..
+4. cmake ../compiler
 
-5. make
+5. make -j 10
+
+The resulting "floyd" binary is in the build directory.
 
 #### UNIX (generic)
 
@@ -175,7 +181,7 @@ This procedure is not tested, but is a good starting point
 
 4. Modify CMakelists.txt to find llvm libaraies in ../vcpkg/packages
 
-5. cd floyd/dev/floyd; mkdir build; cd build ; cmake .. ; make
+5. cd floyd; mkdir build; cd build ; cmake ../compiler ; make -j 10
 
 
 #### WINDOWS

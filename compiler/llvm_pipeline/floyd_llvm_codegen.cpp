@@ -2622,12 +2622,12 @@ static std::vector<uint8_t> write_object_file(llvm::Module& module, const target
 std::vector<uint8_t> write_object_file(llvm_ir_program_t& program, const target_t& target){
 	QUARK_ASSERT(target.check_invariant());
 
-		return write_object_file(*program.module, target, llvm::CodeGenFileType::ObjectFile);
+		return write_object_file(*program.module, target, floyd_CGFT_ObjectFile);
 }
 std::string write_ir_file(llvm_ir_program_t& program, const target_t& target){
 	QUARK_ASSERT(target.check_invariant());
 
-		const auto a = write_object_file(*program.module, target, llvm::CodeGenFileType::AssemblyFile);
+		const auto a = write_object_file(*program.module, target, floyd_CGFT_AssemblyFile);
 	return std::string(a.begin(), a.end());
 }
 
