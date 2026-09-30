@@ -49,7 +49,7 @@ static std::string gen_to_string(llvm_execution_engine_t& runtime, runtime_value
 }
 
 static llvm::FunctionType* make_intrinsic_llvm_function_type(const llvm_type_lookup& type_lookup, const intrinsic_signature_t& signature){
-	return (llvm::FunctionType*)deref_ptr(get_llvm_type_as_arg(type_lookup, signature._function_type));
+	return get_llvm_function_type(type_lookup, signature._function_type);
 }
 
 
@@ -2019,9 +2019,8 @@ std::vector<function_link_entry_t> make_intrinsics_link_map(llvm::LLVMContext& c
 
 		const auto link_name = encode_intrinsic_link_name(bind.first);
 		const auto function_type = signature_it->_function_type;
-		llvm::Type* function_ptr_type = get_llvm_type_as_arg(type_lookup, signature_it->_function_type);
-		const auto function_byvalue_type = deref_ptr(function_ptr_type);
-		const auto def = function_link_entry_t{ "intrinsic", link_name, (llvm::FunctionType*)function_byvalue_type, nullptr, function_type, {}, bind.second };
+		const auto function_byvalue_type = get_llvm_function_type(type_lookup, function_type);
+		const auto def = function_link_entry_t{ "intrinsic", link_name, function_byvalue_type, nullptr, function_type, {}, bind.second };
 		result.push_back(def);
 	}
 

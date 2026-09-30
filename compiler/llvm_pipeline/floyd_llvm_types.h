@@ -18,8 +18,6 @@
 namespace floyd {
 
 
-llvm::Type* deref_ptr(llvm::Type* type);
-
 //	Returns true if we pass values of this type around via pointers (not by-value).
 bool pass_as_ptr(const type_desc_t& type);
 
@@ -100,6 +98,7 @@ struct type_entry_t {
 		use_flag(false),
 		llvm_type_specific(nullptr),
 		llvm_type_generic(nullptr),
+		optional_struct_type(nullptr),
 		optional_function_def {}
 	{
 		QUARK_ASSERT(check_invariant());
@@ -109,11 +108,13 @@ struct type_entry_t {
 		bool use_flag,
 		llvm::Type* llvm_type_specific,
 		llvm::Type* llvm_type_generic,
-		std::shared_ptr<const llvm_function_def_t> optional_function_def
+		std::shared_ptr<const llvm_function_def_t> optional_function_def,
+		llvm::StructType* optional_struct_type = nullptr
 	) :
 		use_flag(use_flag),
 		llvm_type_specific(llvm_type_specific),
 		llvm_type_generic(llvm_type_generic),
+		optional_struct_type(optional_struct_type),
 		optional_function_def(optional_function_def)
 	{
 	}
@@ -128,6 +129,7 @@ struct type_entry_t {
 	bool use_flag;
 	llvm::Type* llvm_type_specific;
 	llvm::Type* llvm_type_generic;
+	llvm::StructType* optional_struct_type;
 	std::shared_ptr<const llvm_function_def_t> optional_function_def;
 };
 

@@ -10,12 +10,14 @@
 
 #include <llvm/IR/Verifier.h>
 
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
 #include <string>
+#include <optional>
 #include <vector>
 
 #include "floyd_llvm_types.h"
@@ -71,7 +73,7 @@ target_t make_default_target(){
 	auto Features = "";
 
 	llvm::TargetOptions opt;
-	auto RM = llvm::Optional<llvm::Reloc::Model>();
+	auto RM = std::optional<llvm::Reloc::Model>();
 	auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
 	//	Cannot copy DataLayout or put in shared_ptr.
@@ -273,7 +275,7 @@ std::string print_type(llvm::Type* type){
 		type->print(rso);
 
 		if(type->isStructTy()){
-			std::string name = type->getStructName();
+			std::string name = type->getStructName().str();
 			rso << name;
 		}
 
@@ -360,19 +362,17 @@ llvm::Value* get_callers_fcp(const llvm_type_lookup& type_lookup, llvm::Function
 
 
 
-void generate_array_element_store(llvm::IRBuilder<>& builder, llvm::Value& array_ptr_reg, uint64_t element_index, llvm::Value& element_reg){
+void generate_array_element_store(llvm::IRBuilder<>& builder, llvm::Value& array_ptr_reg, llvm::Type& element_type, uint64_t element_index, llvm::Value& element_reg){
 	QUARK_ASSERT(array_ptr_reg.getType()->isPointerTy());
 	QUARK_ASSERT(array_ptr_reg.getType()->isPointerTy());
 
-	auto element_type = array_ptr_reg.getType()->getPointerElementType();
-
-	QUARK_ASSERT(element_type == element_reg.getType());
+	QUARK_ASSERT(&element_type == element_reg.getType());
 
 	auto element_index_reg = llvm::ConstantInt::get(builder.getInt64Ty(), element_index);
 	const auto gep = std::vector<llvm::Value*>{
 		element_index_reg
 	};
-	llvm::Value* element_n_ptr = builder.CreateGEP(element_type, &array_ptr_reg, gep, "");
+	llvm::Value* element_n_ptr = builder.CreateGEP(&element_type, &array_ptr_reg, gep, "");
 	builder.CreateStore(&element_reg, element_n_ptr);
 }
 

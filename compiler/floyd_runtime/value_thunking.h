@@ -9,6 +9,7 @@
 #ifndef value_thunking_hpp
 #define value_thunking_hpp
 
+#include <cstdint>
 #include <string>
 
 namespace floyd {

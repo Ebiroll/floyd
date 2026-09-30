@@ -58,7 +58,7 @@ static std::vector<function_bind_t> floydrt_alloc_kstr__make(llvm::LLVMContext& 
 		make_generic_vec_type_byvalue(type_lookup)->getPointerTo(),
 		{
 			make_frp_type(type_lookup),
-			llvm::Type::getInt8PtrTy(context),
+			llvm::PointerType::get(context, 0),
 			llvm::Type::getInt64Ty(context)
 		},
 		false
@@ -674,6 +674,7 @@ llvm::Value* generate_load_struct_member(llvm_function_generator_t& gen_acc, llv
 	auto& struct_type_llvm = *get_exact_struct_type_byvalue(gen_acc.gen.type_lookup, struct_type);
 
 	auto base_ptr_reg = generate_get_struct_base_ptr(gen_acc, struct_ptr_reg, struct_type);
+	const auto member_type = peek2(types, peek2(types, struct_type).get_struct(types)._members[member_index]._type);
 
 	const auto gep = std::vector<llvm::Value*>{
 		//	Struct array index.
@@ -683,7 +684,7 @@ llvm::Value* generate_load_struct_member(llvm_function_generator_t& gen_acc, llv
 		builder.getInt32(member_index)
 	};
 	llvm::Value* member_ptr_reg = builder.CreateGEP(&struct_type_llvm, base_ptr_reg, gep, "");
-	auto member_value_reg = builder.CreateLoad(member_ptr_reg);
+	auto member_value_reg = builder.CreateLoad(get_llvm_type_as_arg(gen_acc.gen.type_lookup, member_type), member_ptr_reg);
 
 	return member_value_reg;
 }

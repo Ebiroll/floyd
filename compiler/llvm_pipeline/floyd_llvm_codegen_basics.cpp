@@ -123,7 +123,7 @@ llvm::Value* generate_floyd_call(llvm_function_generator_t& gen_acc, const type_
 		}
 	}
 	QUARK_ASSERT(arg_regs.size() == callee_mapping.args.size());
-	auto result0_reg = builder.CreateCall(&callee_reg, arg_regs, "");
+	auto result0_reg = builder.CreateCall(get_llvm_function_type(gen_acc.gen.type_lookup, callee_function_type), &callee_reg, arg_regs, "");
 
 	for(const auto& m: destroy){
 		generate_release(gen_acc, *m.first, m.second);

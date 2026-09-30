@@ -21,7 +21,6 @@
 
 #include <cpuid.h>
 #include <sys/types.h>
-#include <sys/sysctl.h>
 #include <unistd.h>
 #include <stdio.h>
 

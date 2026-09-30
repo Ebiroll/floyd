@@ -149,7 +149,7 @@ There is no compiled distribution of Floyd yet. You need to clone the github rep
 
 #### UNIX (ubuntu)
 
-1. Install llvm,  sudo apt-get install -qq  cmake llvm-8-dev
+1. Install llvm,  sudo apt-get install -qq  cmake llvm-18-dev
 
 2. cd floyd/dev/floyd
 

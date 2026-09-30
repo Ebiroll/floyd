@@ -22,7 +22,7 @@ ENDIF(MSVC)
 SET (CMAKE_BUILD_TYPE Debug)
 
 
-include_directories(parts /usr/lib/llvm-8/includecommandline_tool  /usr/include benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+include_directories(parts /usr/include benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
 #find_library(
 #  LLVM_LIB
@@ -35,7 +35,7 @@ include(cmake/LLVM.cmake)
 #include_directories(/usr/local/Cellar/llvm@8/8.0.1/include 
 #/usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
 
-include_directories(../llvm-project/llvm/include ../llvm-project/llvm/build/include  /usr/local/Cellar/llvm@8/8.0.1/include /usr/lib/llvm-8/include passes parts target_tool  /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter  parts/immer-master floyd_parser parts/sha1 llvm_pipeline  .)
+include_directories(passes parts target_tool /usr/include target_benchmark_internals libs/benchmark/include libs/benchmark/googletest/googlemock/ libs/benchmark/googletest/googlemock/include libs/benchmark/googletest/googletest/include/ floyd_runtime floyd_basics floyd_ast bytecode_interpreter parts/immer-master floyd_parser parts/sha1 llvm_pipeline .)
 
 if (MSVC)  # - Microsoft Visual C++
 set (PROJECTNAME_ARCHITECTURE "x64")
@@ -59,20 +59,23 @@ else()
     message(" [INFO] VCPKG CMAKE_TOOLCHAIN_FILE = ${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
-find_package(Threads REQUIRED)
 #find_package(LLVM  REQUIRED PATHS  "${CMAKE_SOURCE_DIR}/../../../vcpkg/packages/llvm_x64-windows/share/llvm/" "C:/dev/floyd/llvm-project/llvm")
 #find_package(readline REQUIRED)
 
 
 endif(MSVC)
 
+find_package(Threads REQUIRED)
+
 #message(" [INFO] VCPKG CMAKE_TOOLCHAIN_FILE = ${CMAKE_TOOLCHAIN_FILE}")
 #find_package(LLVM  REQUIRED) 
 
 # Simplle implementation
-include_directories(libs/getopts)
-include_directories(libs/pthread)
-include_directories(libs/dirent)
+if(MSVC)
+  include_directories(libs/getopts)
+  include_directories(libs/pthread)
+  include_directories(libs/dirent)
+endif()
 
 # Proper vcpkg include directories
 include_directories(${VCPKG_ROOT}/packages/llvm_x64-windows/include)
@@ -350,8 +353,6 @@ target_include_directories( floyd
    PUBLIC
 )
 
-link_directories("${CMAKE_SOURCE_DIR}/../llvm-project/llvm/build/Release/lib")
-
 #link_directories("C:/dev/floyd/llvm-project/llvm/build/Release/lib")
 
 
@@ -462,7 +463,7 @@ ${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM ${LLVM_LIB} readline)
 else()
 target_link_libraries( floyd
 ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
-${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM-8 ${LLVM_LIB} readline)
+${FLOYD_SPEAK_DEPENDENCIES} Threads::Threads LLVM readline)
 ENDIF()
 
 

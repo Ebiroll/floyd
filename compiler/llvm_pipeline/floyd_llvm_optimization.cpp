@@ -31,11 +31,10 @@ static const bool k_trace_after = false;
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/PassManager.h>
 
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -49,19 +48,19 @@ static const bool k_trace_after = false;
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
-#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Bitstream/BitstreamWriter.h"
 
 
 
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -69,7 +68,6 @@ static const bool k_trace_after = false;
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
-#include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DataLayout.h"
@@ -85,22 +83,20 @@ static const bool k_trace_after = false;
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
-#include "llvm/MC/SubtargetFeature.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <algorithm>
 #include <memory>
@@ -226,80 +222,11 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 																	TargetMachine *TM, unsigned OptLevel,
 																	unsigned SizeLevel) {
 	FPM.add(createVerifierPass()); // Verify that input is correct
-
-	PassManagerBuilder Builder;
-	Builder.OptLevel = OptLevel;
-	Builder.SizeLevel = SizeLevel;
-
-	if (DisableInline) {
-		// No inlining pass
-	} else if (OptLevel > 1) {
-		Builder.Inliner = createFunctionInliningPass(OptLevel, SizeLevel, false);
-	} else {
-		Builder.Inliner = createAlwaysInlinerLegacyPass();
-	}
-	Builder.DisableUnrollLoops = DisableLoopUnrolling ? DisableLoopUnrolling : OptLevel == 0;
-
-	// Check if vectorization is explicitly disabled via -vectorize-loops=false.
-	// The flag enables vectorization in the LoopVectorize pass, it is on by
-	// default, and if it was disabled, leave it disabled here.
-	// Another flag that exists: -loop-vectorize, controls adding the pass to the
-	// pass manager. If set, the pass is added, and there is no additional check
-	// here for it.
-	if (Builder.LoopVectorize)
-		Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
-
-	// When #pragma vectorize is on for SLP, do the same as above
-	Builder.SLPVectorize =
-			DisableSLPVectorization ? false : OptLevel > 1 && SizeLevel < 2;
-
-	if (TM)
-		TM->adjustPassManager(Builder);
-
-	if (Coroutines)
-		addCoroutinePassesToExtensionPoints(Builder);
-
-/*
-	switch (PGOKindFlag) {
-	case InstrGen:
-		Builder.EnablePGOInstrGen = true;
-		Builder.PGOInstrGen = ProfileFile;
-		break;
-	case InstrUse:
-		Builder.PGOInstrUse = ProfileFile;
-		break;
-	case SampleUse:
-		Builder.PGOSampleUse = ProfileFile;
-		break;
-	default:
-		break;
-	}
-
-	switch (CSPGOKindFlag) {
-	case CSInstrGen:
-//    Builder.EnablePGOCSInstrGen = true;
-		break;
-	case CSInstrUse:
-//    Builder.EnablePGOCSInstrUse = true;
-		break;
-	default:
-		break;
-	}
-*/
-
-	Builder.populateFunctionPassManager(FPM);
-	Builder.populateModulePassManager(MPM);
+	MPM.add(createVerifierPass());
 }
 
 static void AddStandardLinkPasses(legacy::PassManagerBase &PM) {
-	PassManagerBuilder Builder;
-	Builder.VerifyInput = true;
-	if (DisableOptimizations)
-		Builder.OptLevel = 0;
-
-	if (!DisableInline)
-		Builder.Inliner = createFunctionInliningPass();
-	Builder.populateLTOPassManager(PM);
+	PM.add(createVerifierPass());
 }
 
 
@@ -322,45 +249,6 @@ extern "C" void optimize_module_mutating(llvm_instance_t& instance, std::unique_
 	InitializeAllAsmParsers();
 */
 
-	// Initialize passes
-	PassRegistry& Registry = *PassRegistry::getPassRegistry();
-	initializeCore(Registry);
-	initializeCoroutines(Registry);
-	initializeScalarOpts(Registry);
-	initializeObjCARCOpts(Registry);
-	initializeVectorization(Registry);
-	initializeIPO(Registry);
-	initializeAnalysis(Registry);
-	initializeTransformUtils(Registry);
-	initializeInstCombine(Registry);
-	initializeAggressiveInstCombine(Registry);
-	initializeInstrumentation(Registry);
-	initializeTarget(Registry);
-	// For codegen passes, only passes that do IR to IR transformation are
-	// supported.
-	initializeExpandMemCmpPassPass(Registry);
-	initializeScalarizeMaskedMemIntrinPass(Registry);
-	initializeCodeGenPreparePass(Registry);
-	initializeAtomicExpandPass(Registry);
-	initializeRewriteSymbolsLegacyPassPass(Registry);
-	initializeWinEHPreparePass(Registry);
-	initializeDwarfEHPreparePass(Registry);
-	initializeSafeStackLegacyPassPass(Registry);
-	initializeSjLjEHPreparePass(Registry);
-	initializeStackProtectorPass(Registry);
-	initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
-	initializeGlobalMergePass(Registry);
-	initializeIndirectBrExpandPassPass(Registry);
-	initializeInterleavedLoadCombinePass(Registry);
-	initializeInterleavedAccessPass(Registry);
-	initializeEntryExitInstrumenterPass(Registry);
-	initializePostInlineEntryExitInstrumenterPass(Registry);
-	initializeUnreachableBlockElimLegacyPassPass(Registry);
-	initializeExpandReductionsPass(Registry);
-	initializeWasmEHPreparePass(Registry);
-	initializeWriteBitcodePassPass(Registry);
-//???  initializeHardwareLoopsPass(Registry);
-
 	SMDiagnostic Err;
 
 	// Strip debug info before running the verifier.
@@ -378,15 +266,7 @@ extern "C" void optimize_module_mutating(llvm_instance_t& instance, std::unique_
 	Triple ModuleTriple(M->getTargetTriple());
 	TargetMachine *Machine = instance.target.target_machine;
 
-	std::string CPUStr = Machine->getTargetCPU();
-	std::string FeaturesStr = Machine->getTargetFeatureString();
-	const TargetOptions Options = InitTargetOptionsFromCodeGenFlags();
-
 	TargetMachine* TM = Machine;
-
-	// Override function attributes based on CPUStr, FeaturesStr, and command line
-	// flags.
-	setFunctionAttributes(CPUStr, FeaturesStr, *M);
 
 
 	// Create a PassManager to hold and optimize the collection of passes we are

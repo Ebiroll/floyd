@@ -35,6 +35,7 @@ bool pass_as_ptr(const type_desc_t& desc){
 }
 
 
+/*
 llvm::Type* deref_ptr(llvm::Type* type){
 	QUARK_ASSERT(type != nullptr);
 
@@ -48,6 +49,7 @@ llvm::Type* deref_ptr(llvm::Type* type){
 		return type;
 	}
 }
+*/
 
 
 
@@ -316,7 +318,7 @@ static const type_entry_t& make_anonymous_struct(builder_t& builder, const type_
 	const auto llvm_type = s->getPointerTo();
 	llvm::Type* llvm_generic_type = builder.acc.generic_struct_type->getPointerTo();
 
-	const auto entry = type_entry_t{ true, llvm_type, llvm_generic_type, nullptr };
+	const auto entry = type_entry_t{ true, llvm_type, llvm_generic_type, nullptr, s };
 	builder.acc.type_entries[type_index] = entry;
 	return builder.acc.type_entries[type_index];
 }
@@ -342,7 +344,7 @@ static const type_entry_t& make_named_struct(builder_t& builder, const type_t& t
 		const auto llvm_type = s->getPointerTo();
 		llvm::Type* llvm_generic_type = builder.acc.generic_struct_type->getPointerTo();
 
-		const auto entry = type_entry_t{ true, llvm_type, llvm_generic_type, nullptr };
+		const auto entry = type_entry_t{ true, llvm_type, llvm_generic_type, nullptr, s };
 		builder.acc.type_entries[type_index] = entry;
 
 
@@ -638,9 +640,8 @@ llvm::StructType* get_exact_struct_type_byvalue(const llvm_type_lookup& i, const
 	QUARK_ASSERT(peek2(i.state.types, type).is_struct());
 
 	const auto& entry = i.find_from_type(type);
-	auto result = entry.llvm_type_specific;
-	auto result2 = deref_ptr(result);
-	return llvm::cast<llvm::StructType>(result2);
+	QUARK_ASSERT(entry.optional_struct_type != nullptr);
+	return entry.optional_struct_type;
 }
 
 llvm::Type* get_llvm_type_as_arg(const llvm_type_lookup& i, const type_t& type){

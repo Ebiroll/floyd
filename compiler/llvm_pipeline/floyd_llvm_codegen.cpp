@@ -51,11 +51,10 @@ static const bool k_trace_pass_io = false;
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/PassManager.h>
 
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -69,16 +68,16 @@ static const bool k_trace_pass_io = false;
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
 
 
-#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Bitstream/BitstreamWriter.h"
 
 #include <map>
 #include <algorithm>
@@ -511,7 +510,7 @@ static void generate_destruct_scope_locals(llvm_function_generator_t& gen_acc, c
 			else{
 				const auto type = e.symbol.get_value_type();
 				if(is_rc_value(peek2(types, type))){
-					auto reg = builder.CreateLoad(e.value_ptr);
+					auto reg = builder.CreateLoad(get_llvm_type_as_arg(gen_acc.gen.type_lookup, e.symbol.get_value_type()), e.value_ptr);
 					generate_release(gen_acc, *reg, type);
 				}
 				else{
@@ -647,11 +646,11 @@ static llvm::Value* generate_lookup_element_expression(llvm_function_generator_t
 		QUARK_ASSERT(key_type_peek.is_int());
 
 		auto element_ptr_reg = generate_get_vec_element_ptr_needs_cast(gen_acc, *parent_reg);
-		auto char_ptr_reg = gen_acc.get_builder().CreateCast(llvm::Instruction::CastOps::BitCast, element_ptr_reg, builder.getInt8PtrTy(), "");
+		auto char_ptr_reg = gen_acc.get_builder().CreateCast(llvm::Instruction::CastOps::BitCast, element_ptr_reg, llvm::PointerType::get(context, 0), "");
 
 		const auto gep = std::vector<llvm::Value*>{ key_reg };
 		llvm::Value* element_addr = builder.CreateGEP(llvm::Type::getInt8Ty(context), char_ptr_reg, gep, "element_addr");
-		llvm::Value* value_8bit_reg = builder.CreateLoad(element_addr, "element_tmp");
+		llvm::Value* value_8bit_reg = builder.CreateLoad(builder.getInt8Ty(), element_addr, "element_tmp");
 		llvm::Value* element_reg = gen_acc.get_builder().CreateCast(llvm::Instruction::CastOps::SExt, value_8bit_reg, builder.getInt64Ty(), "char_to_int64");
 
 		generate_release(gen_acc, *parent_reg, parent_type);
@@ -688,7 +687,7 @@ static llvm::Value* generate_lookup_element_expression(llvm_function_generator_t
 
 		const auto gep = std::vector<llvm::Value*>{ key_reg };
 		llvm::Value* element_addr_reg = builder.CreateGEP(builder.getInt64Ty(), int64_ptr_reg, gep, "element_addr");
-		llvm::Value* element_value_uint64_reg = builder.CreateLoad(element_addr_reg, "element_tmp");
+		llvm::Value* element_value_uint64_reg = builder.CreateLoad(builder.getInt64Ty(), element_addr_reg, "element_tmp");
 		auto result_reg = generate_cast_from_runtime_value(gen_acc.gen, *element_value_uint64_reg, element_type0);
 
 		generate_retain(gen_acc, *result_reg, element_type0);
@@ -1089,7 +1088,7 @@ static llvm::Value* generate_conditional_operator_expression(llvm_function_gener
 
 
 	// Emit else block.
-	parent_function->getBasicBlockList().push_back(else_bb);
+	else_bb->insertInto(parent_function);
 	builder.SetInsertPoint(else_bb);
 	llvm::Value* else_reg = generate_expression(gen_acc, *conditional.b);
 	builder.CreateBr(join_bb);
@@ -1101,7 +1100,7 @@ static llvm::Value* generate_conditional_operator_expression(llvm_function_gener
 	QUARK_ASSERT(result_itype == else_reg->getType());
 
 	// Emit join block.
-	parent_function->getBasicBlockList().push_back(join_bb);
+	join_bb->insertInto(parent_function);
 	builder.SetInsertPoint(join_bb);
 	llvm::PHINode* phiNode = builder.CreatePHI(result_itype, 2, "cond_operator-result");
 	phiNode->addIncoming(then_reg, then_bb2);
@@ -1434,7 +1433,7 @@ static llvm::Value* generate_construct_vector(llvm_function_generator_t& gen_acc
 			for(const auto& arg: details.elements){
 				llvm::Value* element0_reg = generate_expression(gen_acc, arg);
 				auto element_value_reg = builder.CreateCast(llvm::Instruction::CastOps::ZExt, element0_reg, make_runtime_value_type(gen_acc.gen.type_lookup), "");
-				generate_array_element_store(builder, *array_ptr_reg, element_index, *element_value_reg);
+				generate_array_element_store(builder, *array_ptr_reg, *element_value_reg->getType(), element_index, *element_value_reg);
 				element_index++;
 			}
 			return vec_ptr_reg;
@@ -1449,7 +1448,7 @@ static llvm::Value* generate_construct_vector(llvm_function_generator_t& gen_acc
 				//	Move ownwership from temp to member element, no need for retain-release.
 
 				llvm::Value* element_value_reg = generate_expression(gen_acc, element_value);
-				generate_array_element_store(builder, *array_ptr_reg, element_index, *element_value_reg);
+				generate_array_element_store(builder, *array_ptr_reg, *element_value_reg->getType(), element_index, *element_value_reg);
 				element_index++;
 			}
 			return vec_ptr_reg;
@@ -1726,7 +1725,7 @@ static llvm::Value* generate_benchmark_expression(llvm_function_generator_t& gen
 	////////	while_cond1_bb: minimum 2 runs
 
 	builder.SetInsertPoint(while_cond1_bb);
-	auto index2_reg = builder.CreateLoad(index_ptr_reg);
+	auto index2_reg = builder.CreateLoad(builder.getInt64Ty(), index_ptr_reg);
 	auto test2_reg = builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, index2_reg, min_count_reg);
 	builder.CreateCondBr(test2_reg, while_loop_bb, while_cond2_bb);
 
@@ -1749,7 +1748,7 @@ static llvm::Value* generate_benchmark_expression(llvm_function_generator_t& gen
 	auto b_time_reg = builder.CreateCall(get_profile_time_f, { gen_acc.get_callers_fcp() }, "");
 
 	auto duration_reg = builder.CreateSub(b_time_reg, a_time_reg, "calc dur");
-	auto index_reg = builder.CreateLoad(index_ptr_reg);
+	auto index_reg = builder.CreateLoad(builder.getInt64Ty(), index_ptr_reg);
 	const auto gep = std::vector<llvm::Value*>{
 		index_reg
 	};
@@ -1772,7 +1771,7 @@ static llvm::Value* generate_benchmark_expression(llvm_function_generator_t& gen
 	////////	while_join_bb
 
 	builder.SetInsertPoint(while_join_bb);
-	auto index5_reg = builder.CreateLoad(index_ptr_reg);
+	auto index5_reg = builder.CreateLoad(builder.getInt64Ty(), index_ptr_reg);
 	auto best_dur_reg = builder.CreateCall(
 		analyse_benchmark_samples_f,
 		{ gen_acc.get_callers_fcp(), samples_ptr_reg, index5_reg },
@@ -1792,7 +1791,7 @@ static llvm::Value* generate_load2_expression(llvm_function_generator_t& gen_acc
 //	QUARK_TRACE_SS("result = " << floyd::print_program(gen_acc.program_acc));
 
 	auto dest = find_symbol(gen_acc.gen, details.address);
-	auto result = gen_acc.get_builder().CreateLoad(dest.value_ptr, "temp");
+	auto result = gen_acc.get_builder().CreateLoad(get_llvm_type_as_arg(gen_acc.gen.type_lookup, get_expr_output_type(gen_acc.gen, e)), dest.value_ptr, "temp");
 	generate_retain(gen_acc, *result, get_expr_output_type(gen_acc.gen, e));
 	return result;
 }
@@ -1897,7 +1896,7 @@ static void generate_assign2_statement(llvm_function_generator_t& gen_acc, const
 	const auto type = dest.symbol.get_value_type();
 
 	if(is_rc_value(peek2(types, type))){
-		auto prev_value = gen_acc.get_builder().CreateLoad(dest.value_ptr);
+		auto prev_value = gen_acc.get_builder().CreateLoad(get_llvm_type_as_arg(gen_acc.gen.type_lookup, type), dest.value_ptr);
 		generate_release(gen_acc, *prev_value, type);
 
 		//	No need to retain new value. generate_expression() takes care of that.
@@ -2060,7 +2059,7 @@ static function_return_mode generate_for_statement(llvm_function_generator_t& ge
 	const auto return_mode = generate_body_and_destruct_locals_if_some_path_not_returned(gen_acc, values, statement._body._statements);
 
 	if(return_mode == function_return_mode::some_path_not_returned){
-		llvm::Value* counter2 = builder.CreateLoad(counter_reg);
+		llvm::Value* counter2 = builder.CreateLoad(builder.getInt64Ty(), counter_reg);
 		llvm::Value* counter3 = builder.CreateAdd(counter2, add_reg, "inc_for_counter");
 		builder.CreateStore(counter3, counter_reg);
 
@@ -2397,7 +2396,7 @@ static std::vector<function_link_entry_t> generate_function_nodes(llvm::Module& 
 		QUARK_ASSERT(existing_f == nullptr);
 
 		auto f0 = module.getOrInsertFunction(e.link_name.s, e.llvm_function_type);
-		auto f = llvm::cast<llvm::Function>(f0);
+		auto* f = llvm::cast<llvm::Function>(f0.getCallee());
 
 		QUARK_ASSERT(check_invariant__function(f));
 		QUARK_ASSERT(check_invariant__module(&module));
@@ -2521,7 +2520,7 @@ static void generate_floyd_runtime_deinit(llvm_code_generator_t& gen_acc, const 
 					if(needs_destruct){
 						const auto type = e.symbol.get_value_type();
 						if(is_rc_value(peek2(types, type))){
-							auto reg = builder.CreateLoad(e.value_ptr);
+							auto reg = builder.CreateLoad(get_llvm_type_as_arg(function_gen_acc.gen.type_lookup, e.symbol.get_value_type()), e.value_ptr);
 							generate_release(function_gen_acc, *reg, type);
 						}
 						else{
@@ -2602,7 +2601,7 @@ static module_output_t generate_module(llvm_instance_t& instance, const std::str
 }
 
 
-static std::vector<uint8_t> write_object_file(llvm::Module& module, const target_t& target, llvm::TargetMachine::CodeGenFileType type){
+static std::vector<uint8_t> write_object_file(llvm::Module& module, const target_t& target, llvm::CodeGenFileType type){
 	QUARK_ASSERT(target.check_invariant());
 
 	//	??? Migrate from legacy.
@@ -2623,12 +2622,12 @@ static std::vector<uint8_t> write_object_file(llvm::Module& module, const target
 std::vector<uint8_t> write_object_file(llvm_ir_program_t& program, const target_t& target){
 	QUARK_ASSERT(target.check_invariant());
 
-	return write_object_file(*program.module, target, llvm::TargetMachine::CGFT_ObjectFile);
+		return write_object_file(*program.module, target, llvm::CodeGenFileType::ObjectFile);
 }
 std::string write_ir_file(llvm_ir_program_t& program, const target_t& target){
 	QUARK_ASSERT(target.check_invariant());
 
-	const auto a = write_object_file(*program.module, target, llvm::TargetMachine::CGFT_AssemblyFile);
+		const auto a = write_object_file(*program.module, target, llvm::CodeGenFileType::AssemblyFile);
 	return std::string(a.begin(), a.end());
 }
 

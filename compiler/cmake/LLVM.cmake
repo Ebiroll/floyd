@@ -9,14 +9,13 @@ else()
     set(CMAKE_FOLDER "LLVM")
 endif()
 
-# Find LLVM
-#find_package(LLVM REQUIRED CONFIG HINTS "c:/dev/floyd/llvm-project/llvm/build/release/lib/cmake/llvm")
-
-# Set the include directory
-set(LLVM_INCLUDE_DIRS "c:/dev/floyd/llvm-project/llvm/include" "c:/dev/floyd/llvm-project/llvm/build/include")
-
-# Set the library directory
-set(LLVM_LIBRARIES "c:/dev/floyd/llvm-project/llvm/build/Release/lib")
+# Find the installed LLVM package. Linux currently uses the LLVM version
+# provided by the host distribution instead of building LLVM from source.
+if(UNIX AND NOT APPLE)
+    find_package(LLVM CONFIG REQUIRED HINTS /usr/lib/llvm-18/lib/cmake/llvm)
+else()
+    find_package(LLVM CONFIG REQUIRED)
+endif()
 
 
 add_definitions(
@@ -45,10 +44,8 @@ message(STATUS "LLVM includes: ${LLVM_INCLUDE_DIRS}")
 message(STATUS "LLVM definitions: ${LLVM_DEFINITIONS}")
 message(STATUS "LLVM tools: ${LLVM_TOOLS_BINARY_DIR}")
 
-add_library(LLVM INTERFACE)
-target_include_directories(LLVM SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
-target_link_libraries(LLVM INTERFACE ${LLVM_AVAILABLE_LIBS})
-target_compile_definitions(LLVM INTERFACE ${LLVM_DEFINITIONS} -DNOMINMAX)
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS} -DNOMINMAX)
 
 set(CMAKE_FOLDER "${CMAKE_FOLDER_LLVM}")
 unset(CMAKE_FOLDER_LLVM)

@@ -13,7 +13,7 @@ jobs:
           command: 'sudo apt-get install software-properties-common'
       - run:
           name: apt-get g++
-          command: 'sudo apt-get install -qq --allow-unauthenticated  g++-9 cmake llvm-8-dev libedit-dev'
+          command: 'sudo apt-get install -qq --allow-unauthenticated  g++-9 cmake llvm-18-dev libedit-dev'
       - run:
           name: update alternatives
           command: 'sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90'

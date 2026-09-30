@@ -87,7 +87,7 @@ llvm::Value* get_callers_fcp(const llvm_type_lookup& type_lookup, llvm::Function
 ////////////////////////////////		CODEGEN
 
 
-void generate_array_element_store(llvm::IRBuilder<>& builder, llvm::Value& array_ptr_reg, uint64_t element_index, llvm::Value& element_reg);
+void generate_array_element_store(llvm::IRBuilder<>& builder, llvm::Value& array_ptr_reg, llvm::Type& element_type, uint64_t element_index, llvm::Value& element_reg);
 
 
 
