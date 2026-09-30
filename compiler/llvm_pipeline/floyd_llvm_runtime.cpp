@@ -29,6 +29,7 @@ static const bool k_trace_function_link_map = false;
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/DataLayout.h>
+#include "floyd_llvm_compat.h"
 
 //#include "llvm/Bitcode/BitstreamWriter.h"
 
@@ -517,7 +518,7 @@ static std::unique_ptr<llvm_execution_engine_t> make_engine_no_init(llvm_instanc
 	//	WARNING: Destroys p -- uses std::move().
 	llvm::ExecutionEngine* exeEng = llvm::EngineBuilder(std::move(program_breaks.module))
 		.setErrorStr(&collectedErrors)
-		.setOptLevel(llvm::CodeGenOptLevel::None)
+		.setOptLevel(floyd_CodeGenOpt_None)
 		.setVerifyModules(true)
 		.setEngineKind(llvm::EngineKind::JIT)
 		.create();

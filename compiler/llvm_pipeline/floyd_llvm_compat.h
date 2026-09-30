@@ -46,4 +46,11 @@
 	template<typename T> using floyd_optional = llvm::Optional<T>;
 #endif
 
+// LLVM >= 18 replaced the llvm::CodeGenOpt::Level enum with the scoped llvm::CodeGenOptLevel.
+#if LLVM_VERSION_MAJOR >= 18
+	inline constexpr auto floyd_CodeGenOpt_None = llvm::CodeGenOptLevel::None;
+#else
+	inline constexpr auto floyd_CodeGenOpt_None = llvm::CodeGenOpt::None;
+#endif
+
 #endif
