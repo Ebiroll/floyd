@@ -1,7 +1,0 @@
-[submodule "dev/floyd/llvm-project"]
-	path = dev/floyd/llvm-project
-	url = https://github.com/sapir/llvm-project/
-	branch = llvm-8-xtensa
-[submodule "llvm-project"]
-	path = llvm-project
-	url = https://github.com/sapir/llvm-project
