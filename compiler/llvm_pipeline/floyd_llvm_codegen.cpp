@@ -68,7 +68,7 @@ static const bool k_trace_pass_io = false;
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/TargetParser/Host.h"
+#include "floyd_llvm_compat.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"

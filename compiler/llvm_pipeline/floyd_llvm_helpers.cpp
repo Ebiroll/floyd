@@ -12,7 +12,7 @@
 
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/TargetParser/Host.h"
+#include "floyd_llvm_compat.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 

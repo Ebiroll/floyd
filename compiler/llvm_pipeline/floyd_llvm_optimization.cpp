@@ -48,7 +48,7 @@ static const bool k_trace_after = false;
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/TargetParser/Host.h"
+#include "floyd_llvm_compat.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
@@ -60,7 +60,6 @@ static const bool k_trace_after = false;
 
 
 
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -83,10 +82,8 @@ static const bool k_trace_after = false;
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
-#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/TargetParser/Host.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/SourceMgr.h"
