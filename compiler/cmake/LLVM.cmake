@@ -13,6 +13,8 @@ endif()
 # provided by the host distribution instead of building LLVM from source.
 if(UNIX AND NOT APPLE)
     find_package(LLVM CONFIG REQUIRED HINTS /usr/lib/llvm-18/lib/cmake/llvm)
+elseif(APPLE)
+    find_package(LLVM CONFIG REQUIRED HINTS /usr/local/opt/llvm@18/lib/cmake/llvm /opt/homebrew/opt/llvm@18/lib/cmake/llvm)
 else()
     find_package(LLVM CONFIG REQUIRED)
 endif()

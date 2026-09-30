@@ -455,7 +455,7 @@ if(MSVC)
   Shlwapi)
   # ${CMAKE_SOURCE_DIR}/../../../vcpkg/installed/x64-windows/debug/lib/readline.lib
 elseif(APPLE)
-target_link_options(floyd  PRIVATE "-L/usr/local/opt/llvm@8/lib -Wl,-rpath,/usr/local/opt/llvm@8/lib")
+target_link_options(floyd  PRIVATE "-L/usr/local/opt/llvm@18/lib -Wl,-rpath,/usr/local/opt/llvm@18/lib" "-L/opt/homebrew/opt/llvm@18/lib" "-Wl,-rpath,/opt/homebrew/opt/llvm@18/lib")
 target_link_libraries( floyd
 ${FLOYD_SPEAK_STATIC_DEPENDENCIES}
 ${FLOYD_SPEAK_DEPENDENCIES} pthread LLVM ${LLVM_LIB} readline)
